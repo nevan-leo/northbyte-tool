@@ -12,7 +12,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {
-    "maplibre-gl": "^6.6.0",
+    "@types/leaflet": "^1.9.22",
+    "leaflet": "^1.9.4",
     "next": "16.2.6",
     "react": "19.2.6",
     "react-dom": "19.2.6"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import type { Map as LeafletMap, LayerGroup } from 'leaflet';
 
 export type RouteRecord = {
   code: string;
@@ -15,8 +16,8 @@ function arc(from: [number, number], to: [number, number]) {
   for (let i = 0; i <= 48; i += 1) {
     const t = i / 48;
     points.push([
-      from[0] + (to[0] - from[0]) * t,
       from[1] + (to[1] - from[1]) * t + Math.sin(Math.PI * t) * 4,
+      from[0] + (to[0] - from[0]) * t,
     ]);
   }
   return points;
@@ -24,51 +25,46 @@ function arc(from: [number, number], to: [number, number]) {
 
 export default function RouteMap({ routes, selected, onSelect, networkMode = false }: { routes: RouteRecord[]; selected: number; onSelect: (index: number) => void; networkMode?: boolean }) {
   const container = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const overlayRef = useRef<LayerGroup | null>(null);
   const callbackRef = useRef(onSelect);
   callbackRef.current = onSelect;
 
   useEffect(() => {
     if (!container.current || mapRef.current) return;
     let cancelled = false;
-    void import('maplibre-gl').then(({ default: maplibregl }) => {
+    void import('leaflet').then(L => {
       if (cancelled || !container.current) return;
-      const map = new maplibregl.Map({
-        container: container.current,
-        style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-        center: [-98, 48],
-        zoom: networkMode ? 2.65 : 2.85,
-        minZoom: 2,
-        maxZoom: 10,
-        attributionControl: false,
-      });
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-      map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
-      map.on('load', () => {
-        if (cancelled) return;
-        map.addSource('route-lines', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        map.addLayer({ id: 'routes-shadow', type: 'line', source: 'route-lines', paint: { 'line-color': '#07100a', 'line-width': 6, 'line-opacity': 0.7 } });
-        map.addLayer({ id: 'routes', type: 'line', source: 'route-lines', paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-opacity': ['get', 'opacity'] } });
-        mapRef.current = map;
-        refreshMap(map, maplibregl);
-      });
+      const map = L.map(container.current, { zoomControl: true, attributionControl: true, minZoom: 2, maxZoom: 10 }).setView([48, -98], networkMode ? 3 : 4);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+        className: 'dark-map-tiles',
+      }).addTo(map);
+      mapRef.current = map;
+      overlayRef.current = L.layerGroup().addTo(map);
+      window.setTimeout(() => map.invalidateSize(), 0);
+      draw(L, map);
     });
-    return () => { cancelled = true; markersRef.current.forEach(marker => marker.remove()); markersRef.current = []; mapRef.current?.remove(); mapRef.current = null; };
-  // The map is intentionally created once; updates are handled below.
+    return () => {
+      cancelled = true;
+      mapRef.current?.remove();
+      mapRef.current = null;
+      overlayRef.current = null;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function refreshMap(map: any, maplibregl: any) {
+  function draw(L: typeof import('leaflet'), map: LeafletMap) {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    overlay.clearLayers();
     const shown = networkMode ? routes : [routes[selected]];
-    const features = shown.map((route, index) => ({
-      type: 'Feature',
-      properties: { color: networkMode && routes.indexOf(route) !== selected ? '#789064' : '#d8ff5f', width: networkMode && routes.indexOf(route) !== selected ? 1.8 : 3.2, opacity: networkMode && routes.indexOf(route) !== selected ? 0.52 : 0.96 },
-      geometry: { type: 'LineString', coordinates: arc(route.origin, route.destination) },
-    }));
-    map.getSource('route-lines')?.setData({ type: 'FeatureCollection', features });
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current = [];
+
+    shown.forEach(route => {
+      const active = routes.indexOf(route) === selected;
+      L.polyline(arc(route.origin, route.destination), { color: active ? '#d8ff5f' : '#82986b', weight: active ? 3 : 2, opacity: active ? 0.95 : 0.55, smoothFactor: 1 }).addTo(overlay);
+    });
 
     const airports = new Map<string, { coords: [number, number]; routeIndex: number; hub: boolean }>();
     routes.forEach((route, index) => {
@@ -76,32 +72,30 @@ export default function RouteMap({ routes, selected, onSelect, networkMode = fal
       airports.set(route.destinationCode, { coords: route.destination, routeIndex: index, hub: false });
     });
     airports.forEach((airport, code) => {
-      const button = document.createElement('button');
-      button.className = `airport-marker ${airport.hub ? 'airport-hub' : ''} ${airport.routeIndex === selected ? 'airport-selected' : ''}`;
-      button.type = 'button';
-      button.textContent = code;
-      button.title = `Select route via ${code}`;
-      button.onclick = () => callbackRef.current(airport.routeIndex);
-      const marker = new maplibregl.Marker({ element: button, anchor: 'center' }).setLngLat(airport.coords).addTo(map);
-      markersRef.current.push(marker);
+      const isSelected = airport.routeIndex === selected;
+      const icon = L.divIcon({
+        className: '',
+        html: `<button type="button" class="airport-marker ${airport.hub ? 'airport-hub' : ''} ${isSelected ? 'airport-selected' : ''}" aria-label="Select route via ${code}">${code}</button>`,
+        iconSize: [38, 22],
+        iconAnchor: [19, 11],
+      });
+      L.marker([airport.coords[1], airport.coords[0]], { icon, keyboard: true, title: `Select route via ${code}` }).on('click', () => callbackRef.current(airport.routeIndex)).addTo(overlay);
     });
+
+    if (networkMode) {
+      map.setView([48, -98], 3, { animate: true });
+    } else {
+      const route = routes[selected];
+      map.fitBounds([[route.origin[1], route.origin[0]], [route.destination[1], route.destination[0]]], { padding: [70, 70], maxZoom: 5, animate: true });
+    }
   }
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-    void import('maplibre-gl').then(({ default: maplibregl }) => {
-      refreshMap(map, maplibregl);
-      const route = routes[selected];
-      if (!networkMode) {
-        const bounds = new maplibregl.LngLatBounds(route.origin, route.origin).extend(route.destination);
-        map.fitBounds(bounds, { padding: 90, maxZoom: 4.5, duration: 700 });
-      } else {
-        map.easeTo({ center: [-98, 48], zoom: 2.65, duration: 700 });
-      }
-    });
+    if (!map) return;
+    void import('leaflet').then(L => draw(L, map));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, networkMode, routes]);
 
-  return <div ref={container} className="realMap" aria-label="Interactive map of U.S.–Canada candidate airline routes" />;
+  return <div ref={container} className="realMap" aria-label="Interactive OpenStreetMap showing U.S.–Canada candidate airline routes" />;
 }
