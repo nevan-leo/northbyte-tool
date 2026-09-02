@@ -1,0 +1,391 @@
+{
+    "routes": [
+        {
+            "city": "Toronto to Columbus",
+            "code": "YYZ → CMH",
+            "fare": 151.77,
+            "rank": "01",
+            "score": 98,
+            "demand": 105173,
+            "growth": 14,
+            "origin": [
+                -79.631,
+                43.677
+            ],
+            "distance": 305,
+            "breakeven": 46.1,
+            "components": {
+                "demand": 1,
+                "economics": 1,
+                "supplyGap": 1,
+                "marketQuality": 0.88
+            },
+            "confidence": 84,
+            "originCode": "YYZ",
+            "competitors": 0,
+            "destination": [
+                -82.892,
+                39.998
+            ],
+            "destinationCode": "CMH"
+        },
+        {
+            "city": "Toronto to Raleigh",
+            "code": "YYZ → RDU",
+            "fare": 189.84,
+            "rank": "02",
+            "score": 88,
+            "demand": 97037,
+            "growth": 2.8,
+            "origin": [
+                -79.631,
+                43.677
+            ],
+            "distance": 541,
+            "breakeven": 49.9,
+            "components": {
+                "demand": 0.891,
+                "economics": 0.966,
+                "supplyGap": 1,
+                "marketQuality": 0.63
+            },
+            "confidence": 90,
+            "originCode": "YYZ",
+            "competitors": 0,
+            "destination": [
+                -78.788,
+                35.878
+            ],
+            "destinationCode": "RDU"
+        },
+        {
+            "city": "Toronto to Austin",
+            "code": "YYZ → AUS",
+            "fare": 275.71,
+            "rank": "03",
+            "score": 85,
+            "demand": 85954,
+            "growth": 11.7,
+            "origin": [
+                -79.631,
+                43.677
+            ],
+            "distance": 1358,
+            "breakeven": 56.4,
+            "components": {
+                "demand": 0.742,
+                "economics": 0.908,
+                "supplyGap": 1,
+                "marketQuality": 0.831
+            },
+            "confidence": 86,
+            "originCode": "YYZ",
+            "competitors": 0,
+            "destination": [
+                -97.666,
+                30.197
+            ],
+            "destinationCode": "AUS"
+        },
+        {
+            "city": "Toronto to Indianapolis",
+            "code": "YYZ → IND",
+            "fare": 162.03,
+            "rank": "04",
+            "score": 80,
+            "demand": 74694,
+            "growth": 17,
+            "origin": [
+                -79.631,
+                43.677
+            ],
+            "distance": 439,
+            "breakeven": 64.9,
+            "components": {
+                "demand": 0.591,
+                "economics": 0.833,
+                "supplyGap": 1,
+                "marketQuality": 0.934
+            },
+            "confidence": 78,
+            "originCode": "YYZ",
+            "competitors": 0,
+            "destination": [
+                -86.294,
+                39.717
+            ],
+            "destinationCode": "IND"
+        },
+        {
+            "city": "Toronto to Milwaukee",
+            "code": "YYZ → MKE",
+            "fare": 168.18,
+            "rank": "05",
+            "score": 66,
+            "demand": 61037,
+            "growth": 8.5,
+            "origin": [
+                -79.631,
+                43.677
+            ],
+            "distance": 418,
+            "breakeven": 79.4,
+            "components": {
+                "demand": 0.408,
+                "economics": 0.704,
+                "supplyGap": 1,
+                "marketQuality": 0.713
+            },
+            "confidence": 72,
+            "originCode": "YYZ",
+            "competitors": 0,
+            "destination": [
+                -87.897,
+                42.947
+            ],
+            "destinationCode": "MKE"
+        },
+        {
+            "city": "Vancouver to Austin",
+            "code": "YVR → AUS",
+            "fare": 304.03,
+            "rank": "06",
+            "score": 64,
+            "demand": 58086,
+            "growth": 9.1,
+            "origin": [
+                -123.184,
+                49.194
+            ],
+            "distance": 1870,
+            "breakeven": 83.4,
+            "components": {
+                "demand": 0.369,
+                "economics": 0.668,
+                "supplyGap": 1,
+                "marketQuality": 0.73
+            },
+            "confidence": 73,
+            "originCode": "YVR",
+            "competitors": 0,
+            "destination": [
+                -97.666,
+                30.197
+            ],
+            "destinationCode": "AUS"
+        },
+        {
+            "city": "Vancouver to Boise",
+            "code": "YVR → BOI",
+            "fare": 185.52,
+            "rank": "07",
+            "score": 60,
+            "demand": 49639,
+            "growth": 15.3,
+            "origin": [
+                -123.184,
+                49.194
+            ],
+            "distance": 511,
+            "breakeven": 97.6,
+            "components": {
+                "demand": 0.256,
+                "economics": 0.542,
+                "supplyGap": 1,
+                "marketQuality": 0.89
+            },
+            "confidence": 77,
+            "originCode": "YVR",
+            "competitors": 0,
+            "destination": [
+                -116.223,
+                43.564
+            ],
+            "destinationCode": "BOI"
+        },
+        {
+            "city": "Montreal to Pittsburgh",
+            "code": "YUL → PIT",
+            "fare": 169.4,
+            "rank": "08",
+            "score": 59,
+            "demand": 52400,
+            "growth": 8.9,
+            "origin": [
+                -73.741,
+                45.47
+            ],
+            "distance": 475,
+            "breakeven": 92.4,
+            "components": {
+                "demand": 0.293,
+                "economics": 0.588,
+                "supplyGap": 1,
+                "marketQuality": 0.704
+            },
+            "confidence": 66,
+            "originCode": "YUL",
+            "competitors": 0,
+            "destination": [
+                -80.233,
+                40.491
+            ],
+            "destinationCode": "PIT"
+        },
+        {
+            "city": "Toronto to Grand Rapids",
+            "code": "YYZ → GRR",
+            "fare": 154.66,
+            "rank": "09",
+            "score": 59,
+            "demand": 49227,
+            "growth": 15.7,
+            "origin": [
+                -79.631,
+                43.677
+            ],
+            "distance": 301,
+            "breakeven": 98.4,
+            "components": {
+                "demand": 0.25,
+                "economics": 0.535,
+                "supplyGap": 1,
+                "marketQuality": 0.867
+            },
+            "confidence": 66,
+            "originCode": "YYZ",
+            "competitors": 0,
+            "destination": [
+                -85.523,
+                42.881
+            ],
+            "destinationCode": "GRR"
+        },
+        {
+            "city": "Montreal to Raleigh",
+            "code": "YUL → RDU",
+            "fare": 203.88,
+            "rank": "10",
+            "score": 57,
+            "demand": 53753,
+            "growth": 1.6,
+            "origin": [
+                -73.741,
+                45.47
+            ],
+            "distance": 713,
+            "breakeven": 90.1,
+            "components": {
+                "demand": 0.311,
+                "economics": 0.609,
+                "supplyGap": 1,
+                "marketQuality": 0.533
+            },
+            "confidence": 67,
+            "originCode": "YUL",
+            "competitors": 0,
+            "destination": [
+                -78.788,
+                35.878
+            ],
+            "destinationCode": "RDU"
+        },
+        {
+            "city": "Toronto to San Antonio",
+            "code": "YYZ → SAT",
+            "fare": 287.72,
+            "rank": "11",
+            "score": 56,
+            "demand": 53304,
+            "growth": 0.5,
+            "origin": [
+                -79.631,
+                43.677
+            ],
+            "distance": 1424,
+            "breakeven": 90.9,
+            "components": {
+                "demand": 0.305,
+                "economics": 0.601,
+                "supplyGap": 1,
+                "marketQuality": 0.536
+            },
+            "confidence": 77,
+            "originCode": "YYZ",
+            "competitors": 0,
+            "destination": [
+                -98.469,
+                29.534
+            ],
+            "destinationCode": "SAT"
+        },
+        {
+            "city": "Vancouver to Salt Lake City",
+            "code": "YVR → SLC",
+            "fare": 199.13,
+            "rank": "12",
+            "score": 55,
+            "demand": 73913,
+            "growth": -3.9,
+            "origin": [
+                -123.184,
+                49.194
+            ],
+            "distance": 797,
+            "breakeven": 65.5,
+            "components": {
+                "demand": 0.581,
+                "economics": 0.827,
+                "supplyGap": 0.253,
+                "marketQuality": 0.437
+            },
+            "confidence": 79,
+            "originCode": "YVR",
+            "competitors": 1,
+            "destination": [
+                -111.978,
+                40.788
+            ],
+            "destinationCode": "SLC"
+        }
+    ],
+    "dataset": {
+        "odRows": 844,
+        "sources": [
+            "statcan"
+        ],
+        "airports": 58,
+        "t100Rows": 4296,
+        "marketsScreened": 211
+    },
+    "weights": {
+        "demand": 0.350,
+        "economics": 0.250,
+        "supply_gap": 0.200,
+        "market_quality": 0.200
+    },
+    "aircraft": {
+        "A321XLR": {
+            "range": 4700,
+            "seats": 182
+        },
+        "A220-300": {
+            "range": 3450,
+            "seats": 137
+        },
+        "737 MAX 8": {
+            "range": 3550,
+            "seats": 169
+        }
+    },
+    "assumptions": {
+        "baseAircraft": "A220-300",
+        "baseFrequency": 4,
+        "minStageMiles": 300,
+        "baseLoadFactor": 85,
+        "minMarketDemand": 30000,
+        "nonstopSeatFloor": 5000
+    },
+    "generatedAt": "2026-09-02T05:38:54Z",
+    "referenceYear": 2024
+}

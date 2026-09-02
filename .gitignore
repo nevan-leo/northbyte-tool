@@ -36,3 +36,8 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# pipeline data
+# Raw source extracts are large and republishable; staged files are derived.
+/data/raw/
+/data/staged/
