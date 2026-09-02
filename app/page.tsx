@@ -31,7 +31,7 @@ export default function Home() {
   const [plane, setPlane] = useState(data.assumptions.baseAircraft);
   const [frequency, setFrequency] = useState(data.assumptions.baseFrequency);
   const [loadFactor, setLoadFactor] = useState(data.assumptions.baseLoadFactor);
-  const [capture, setCapture] = useState(Math.round(routes[0].breakeven));
+  const [capture, setCapture] = useState(Math.ceil(routes[0].breakeven));
   const route = routes[selected];
   const visibleRoutes = hub === 'All' ? routes : routes.filter(item => item.originCode === hub);
 
@@ -103,7 +103,7 @@ function Methodology() {
       <article><span>03</span><h2>Route economics</h2><p>Aircraft seats, weekly frequency and target load factor become annual capacity in both directions, then a break-even capture rate: the share of the market the route must win to fill at {data.assumptions.baseLoadFactor}%.</p><b>{pct('economics')}</b></article>
       <article><span>04</span><h2>Market quality</h2><p>Year-over-year growth, source confidence and range headroom against the aircraft&apos;s limit. Markets under {data.assumptions.minStageMiles} miles or {(data.assumptions.minMarketDemand/1000).toFixed(0)}K passengers are screened out before scoring.</p><b>{pct('market_quality')}</b></article>
     </div>
-    <div className="formula"><small>OPPORTUNITY SCORE</small><code>{Object.entries(weights).map(([k, v]) => `${v} ${k.replace('_', ' ')}`).join(' + ')}</code><p>Each component is min-max normalised across the candidate set, so a score ranks candidates against each other rather than predicting profit. Weights live in a database table, not in the query, so alternative weightings can be re-run in one statement. Reference year {data.referenceYear}; {data.dataset.marketsScreened} markets screened from {data.dataset.t100Rows.toLocaleString()} segment rows.</p></div>
+    <div className="formula"><small>OPPORTUNITY SCORE</small><code>{['demand','supply_gap','economics','market_quality'].map(k => `${weights[k]} ${k.replace('_', ' ')}`).join(' + ')}</code><p>Each component is min-max normalised across the candidate set, so a score ranks candidates against each other rather than predicting profit. Weights live in a database table, not in the query, so alternative weightings can be re-run in one statement. Reference year {data.referenceYear}; {data.dataset.marketsScreened} markets screened from {data.dataset.t100Rows.toLocaleString()} segment rows.</p></div>
   </section>;
 }
 
