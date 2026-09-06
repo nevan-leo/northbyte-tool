@@ -104,7 +104,14 @@ SELECT
     us.longitude                  AS destination_lon,
     ca.is_hub                     AS origin_is_hub,
     p.pax                         AS demand_pax,
-    p.avg_fare_usd,
+    -- Statistics Canada publishes no fare, so fall back to the modelled fare
+    -- curve and flag it, rather than presenting an assumption as an observation.
+    coalesce(p.avg_fare_usd,
+             round(cfg('fare_base_usd')::numeric
+                   + cfg('fare_per_mile_usd')::numeric
+                     * gc_miles(ca.latitude, ca.longitude, us.latitude, us.longitude), 2)
+    )                             AS avg_fare_usd,
+    p.avg_fare_usd IS NULL        AS fare_is_modelled,
     p.growth_pct,
     p.confidence,
     p.sources,

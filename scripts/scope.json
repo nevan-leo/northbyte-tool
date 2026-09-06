@@ -1,0 +1,32 @@
+{
+  "note": "Geographic scope of the study. Everything downstream is filtered to this.",
+  "referenceYear": 2018,
+  "canada": {
+    "regions": [
+      "BC",
+      "AB"
+    ],
+    "hubs": [
+      "YVR",
+      "YYC",
+      "YEG"
+    ]
+  },
+  "unitedStates": {
+    "regions": [
+      "AK",
+      "AZ",
+      "CA",
+      "CO",
+      "HI",
+      "ID",
+      "MT",
+      "NM",
+      "NV",
+      "OR",
+      "UT",
+      "WA",
+      "WY"
+    ]
+  }
+}

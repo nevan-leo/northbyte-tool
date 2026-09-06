@@ -8,9 +8,9 @@ SET search_path = nb, public;
 BEGIN;
 
 INSERT INTO config (key, value) VALUES
-    ('base_aircraft',    'A220-300'),
-    ('base_frequency',   '4'),      -- flights per week, each way
-    ('base_load_factor', '85')      -- percent
+    ('base_aircraft',    'E175'),
+    ('base_frequency',   '3'),      -- flights per week, each way
+    ('base_load_factor', '80')      -- percent
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 -- Weights are a model input, so a typo in them should stop the run, not quietly

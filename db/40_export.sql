@@ -42,6 +42,7 @@ SELECT jsonb_pretty(jsonb_build_object(
                 'city',            origin_city || ' to ' || destination_city,
                 'demand',          demand_pax,
                 'fare',            avg_fare_usd::float8,
+                'fareIsModelled',  fare_is_modelled,
                 'growth',          coalesce(growth_pct, 0)::float8,
                 'competitors',     dest_canada_carriers,
                 'distance',        distance_miles::int,

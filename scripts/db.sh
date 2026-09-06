@@ -2,22 +2,32 @@
 # Northbound pipeline runner. Run from the project root.
 #
 #   scripts/db.sh all       rebuild the database from scratch and export the app data
-#   scripts/db.sh init      schema + reference data only
+#   scripts/db.sh fetch     download the public source files into data/raw/
+#   scripts/db.sh init      schema + airports/aircraft/weights reference data
 #   scripts/db.sh stage     normalise source CSVs into data/staged/
 #   scripts/db.sh load      load data/staged/ into the fact tables
 #   scripts/db.sh model     (re)create views and the scoring model
 #   scripts/db.sh export    write app/data/routes.json
 #   scripts/db.sh psql      open a shell on the database
 #
-# Set SOURCE_DIR=data/raw once the real BTS and Statistics Canada extracts are
-# downloaded; it defaults to the synthetic sample so a fresh clone still runs.
+# Runs on the real extracts in data/raw/ (see scripts/fetch_sources.sh). Set
+# SOURCE_DIR=data/sample to fall back to the synthetic files instead.
 
 set -euo pipefail
 
 DB=${DB:-northbound}
-SOURCE_DIR=${SOURCE_DIR:-data/sample}
-T100_FILE=${T100_FILE:-$SOURCE_DIR/t100_segment.csv}
-OD_FILE=${OD_FILE:-$SOURCE_DIR/od_demand.csv}
+YEAR=${YEAR:-2018}
+SOURCE_DIR=${SOURCE_DIR:-data/raw}
+T100_FILE=${T100_FILE:-$SOURCE_DIR/t100i_segment_$YEAR.csv}
+# The sample generator writes an already-normalised O&D file; the real source is
+# the StatCan city-pair table, which needs city resolution instead.
+if [ "$SOURCE_DIR" = "data/raw" ]; then
+  OD_FILE=${OD_FILE:-$SOURCE_DIR/23100256.csv}
+  OD_SOURCE=statcan
+else
+  OD_FILE=${OD_FILE:-$SOURCE_DIR/od_demand.csv}
+  OD_SOURCE=od
+fi
 
 # Homebrew's postgresql@17 is keg-only, and the server refuses to start unless
 # the locale is fully specified.
@@ -30,10 +40,17 @@ ensure_db() {
   psql -lqt | cut -d'|' -f1 | grep -qw "$DB" || createdb "$DB"
 }
 
-init()  { ensure_db; run db/00_schema.sql; run db/01_reference.sql; }
+init() {
+  ensure_db
+  run db/00_schema.sql
+  # Airports come from OurAirports, filtered to scripts/scope.json, so the
+  # reference load has to be built before the SQL that copies it in.
+  python3 scripts/build_reference.py
+  run db/01_reference.sql
+}
 stage() {
-  python3 scripts/normalize.py --source t100 "$T100_FILE" data/staged/t100_segment.csv
-  python3 scripts/normalize.py --source od   "$OD_FILE"   data/staged/od_demand.csv
+  python3 scripts/normalize.py --source t100        "$T100_FILE" data/staged/t100_segment.csv
+  python3 scripts/normalize.py --source "$OD_SOURCE" "$OD_FILE"  data/staged/od_demand.csv
 }
 load()  { run db/10_load.sql; }
 model() { run db/20_views.sql; run db/30_scoring.sql; }
@@ -44,6 +61,7 @@ export_json() {
 }
 
 case "${1:-all}" in
+  fetch)  scripts/fetch_sources.sh ;;
   init)   init ;;
   stage)  stage ;;
   load)   load ;;
@@ -51,5 +69,5 @@ case "${1:-all}" in
   export) export_json ;;
   psql)   psql -d "$DB" ;;
   all)    init; stage; load; model; export_json ;;
-  *)      sed -n '2,16p' "$0" >&2; exit 2 ;;
+  *)      sed -n '2,17p' "$0" >&2; exit 2 ;;
 esac
