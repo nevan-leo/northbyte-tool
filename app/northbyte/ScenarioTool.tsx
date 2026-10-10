@@ -29,7 +29,9 @@ export default function ScenarioTool() {
   const [tab, setTab] = useState<'scenario' | 'data'>('scenario');
   const [cohortFilter, setCohortFilter] = useState<'All' | Cohort>('All');
   const MONTHS = 24, PLAN_STEP = MONTHS;
-  const [step, setStep] = useState(PLAN_STEP);   // opens on the plan, the recommendation
+  // Opens on the latest month actually flown: the map answers "where are we
+  // now" before it answers "what would the plan do".
+  const [step, setStep] = useState(MONTHS - 1);
   const [playing, setPlaying] = useState(false);
 
   useEffect(() => {

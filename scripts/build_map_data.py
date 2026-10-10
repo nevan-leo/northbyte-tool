@@ -25,23 +25,14 @@ LAKES = GEO / "ne_50m_lakes.geojson"
 OUT = ROOT / "app" / "data" / "northbyte-map.json"
 PSQL = "/opt/homebrew/opt/postgresql@17/bin/psql"
 
-# Lambert conformal conic, the standard projection for Canada: straight
-# meridians, true shape at the parallels that matter here.
-LAT0, LON0, LAT1, LAT2 = 49.0, -91.87, 49.0, 77.0
-R = 1.0
-
-
-def lcc(lon, lat):
-    lon, lat = math.radians(lon), math.radians(lat)
-    lon0, lat0 = math.radians(LON0), math.radians(LAT0)
-    lat1, lat2 = math.radians(LAT1), math.radians(LAT2)
-    n = (math.log(math.cos(lat1) / math.cos(lat2))
-         / math.log(math.tan(math.pi / 4 + lat2 / 2) / math.tan(math.pi / 4 + lat1 / 2)))
-    f = math.cos(lat1) * math.tan(math.pi / 4 + lat1 / 2) ** n / n
-    rho = R * f / math.tan(math.pi / 4 + lat / 2) ** n
-    rho0 = R * f / math.tan(math.pi / 4 + lat0 / 2) ** n
-    theta = n * (lon - lon0)
-    return rho * math.sin(theta), rho0 - rho * math.cos(theta)
+# Web Mercator: the projection every online map uses, so the country reads the
+# way people are used to seeing it — flat across the bottom, no conic fan. It
+# stretches the far north, which costs nothing here because the frame is cropped
+# to the band the airline actually flies.
+def lcc(lon, lat):                       # name kept: every caller projects through it
+    lat = max(min(lat, 84.0), -84.0)
+    return (math.radians(lon),
+            math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)))
 
 
 def simplify(points, tolerance):

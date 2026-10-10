@@ -21,16 +21,20 @@ route tables and the assumption list: the evidence a judge asks for.
 
 ## The map
 
-The opening frame is the network as it is flown: one arc per route, with line
-weight and a population of aircraft in proportion to flights per month. Scrub the
-timeline and the traffic thins — Jul 2025 carried 1,478 flights in the month, the
-recommended plan carries 907, a 39% cut.
+The opening frame is the network as it is flown **today** — Aug 2026, the last
+month in the data, at 1,474 flights, 76% above the pre-expansion months. Scrub
+the timeline and the traffic thins: the recommended plan carries 907 a month.
+One arc per route, line weight and aircraft in proportion to flights.
+
+Wheel or the buttons to zoom, drag to pan. Symbols are scaled against the frame,
+so aircraft, airport dots, labels and line weights stay the same size on screen
+at any zoom.
 
 The 24 months on that timeline are **real**, counted from the cost file as
 distinct (route, departure timestamp) pairs; only the step marked *Plan* is a
 scenario, and the legend says so. Everything is plain SVG at coordinates
-projected in `scripts/build_map_data.py` (Lambert conformal conic, the standard
-projection for Canada) from the public-domain Natural Earth 1:50m provinces,
+projected in `scripts/build_map_data.py` (Web Mercator, so the country reads the
+way every online map draws it) from the public-domain Natural Earth 1:50m provinces,
 country outlines and lakes, so the frame can be pasted into a design tool as
 vectors rather than a raster map, and no tiles are fetched at runtime. The 1:110m
 set is too coarse to read as Canada once simplified enough to ship.
@@ -39,7 +43,8 @@ set is too coarse to read as Canada once simplified enough to ship.
 scripts/build_map_data.py    # regenerates app/data/northbyte-map.json
 ```
 
-Aircraft are drawn as silhouettes and positioned by writing each node's
+Aircraft are Material Symbols' `flight` glyph, which is also the mark and the
+favicon, positioned by writing each node's
 transform inside the animation frame rather than through React, since a hundred
 and forty glyphs at sixty frames a second is not a state update. Icons elsewhere
 are Lucide; `prefers-reduced-motion` holds them still, and the

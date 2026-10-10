@@ -226,18 +226,25 @@ button { cursor:pointer; }
 .mapBlock { display:flex; flex-direction:column; gap:var(--s4); }
 .mapFrame { position:relative; }
 /* Capped so the frame stays slide-shaped; the projection letterboxes to fit. */
-.mapSvg { display:block; width:100%; height:auto; max-height:560px; }
+.mapSvg { display:block; width:100%; height:auto; max-height:560px; touch-action:none; cursor:grab; }
+.mapSvg.zoomed { cursor:grab; }
+.mapSvg:active { cursor:grabbing; }
 .mapLand { fill:#efefec; stroke:#dcdcd8; stroke-width:1; }
 .mapDot { fill:var(--ink); }
-/* A white halo keeps codes readable where arcs converge on a hub. */
-.mapLabel { font-family:var(--font-geist-mono),monospace; font-size:13px; fill:var(--ink);
-  paint-order:stroke; stroke:var(--paper); stroke-width:3px; stroke-linejoin:round; }
+/* A white halo keeps codes readable where arcs converge on a hub. Size and halo
+   are set on the element so they can track the zoom. */
+.mapLabel { font-family:var(--font-geist-mono),monospace; fill:var(--ink);
+  paint-order:stroke; stroke:var(--paper); stroke-linejoin:round; }
 .mapReadout { position:absolute; left:0; top:0; pointer-events:none; }
+.mapZoom { position:absolute; right:0; top:0; display:flex; flex-direction:column; gap:var(--s1); }
+.mapZoom .pill { padding:var(--s2); line-height:0; }
+.mapZoom .pill:disabled { opacity:.35; cursor:default; }
 .mapReadout small { display:block; font-size:var(--t-label); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); }
 .mapReadout b { display:block; font-family:var(--font-geist-mono),monospace; font-variant-numeric:tabular-nums;
   font-size:40px; line-height:1.1; letter-spacing:-.02em; margin:var(--s1) 0; }
 .mapReadout span { display:block; font-size:var(--t-small); color:var(--ink-3); }
 .mapReadout .mapDelta { margin-top:var(--s1); color:var(--red); font-weight:600; }
+.mapReadout .mapDelta.up { color:var(--ink); }
 
 .timeline { display:grid; grid-template-columns:auto minmax(0,1fr); grid-template-areas:'play track' 'play axis'; gap:0 var(--s4); align-items:end; }
 .playToggle { grid-area:play; align-self:center; min-width:72px; }
