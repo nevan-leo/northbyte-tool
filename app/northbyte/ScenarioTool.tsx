@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, RotateCcw } from 'lucide-react';
 import NetworkMap, { type ForecastStep } from './NetworkMap';
+import { Figure } from './Figure';
 import {
   scenario, routes, constants, presets, DEFAULT_LEVERS, TODAY_LEVERS, COHORTS,
   requiredFarePct, breakevenRhoDown, protectTicketRevenue,
@@ -157,22 +158,22 @@ export default function ScenarioTool() {
     </div>
 
     <div className="kpiStrip">
-      <Kpi label="Flights" value={count(result.flights)} today={count(today.flights)} />
-      <Kpi label="Net revenue" value={money(result.revenue + result.fareGain - result.feedLoss)} today={money(today.revenue)} />
-      <Kpi label="Operating cost" value={money(result.cost)} today={money(today.cost)} />
-      <Kpi label="Contribution" value={money(result.contribution)} today={money(today.contribution)} tone={sign(result.contribution)} />
-      <Kpi label="Gates" value={money(result.gates)} today={money(today.gates)} />
-      <Kpi label="Profit after gates" value={money(result.profit)} today={money(today.profit)} tone={sign(result.profit)} wide />
-      <Kpi label="Margin" value={pct(result.margin * 100)} today={pct(today.margin * 100)} tone={sign(result.margin)} />
-      <Kpi label="Left to break even" value={result.gapToBreakeven > 0 ? money(result.gapToBreakeven) : 'cleared'}
+      <Kpi label="Flights" value={result.flights} format={count} today={count(today.flights)} />
+      <Kpi label="Net revenue" value={result.revenue + result.fareGain - result.feedLoss} format={money} today={money(today.revenue)} />
+      <Kpi label="Operating cost" value={result.cost} format={money} today={money(today.cost)} />
+      <Kpi label="Contribution" value={result.contribution} format={money} today={money(today.contribution)} tone={sign(result.contribution)} />
+      <Kpi label="Gates" value={result.gates} format={money} today={money(today.gates)} />
+      <Kpi label="Profit after gates" value={result.profit} format={money} today={money(today.profit)} tone={sign(result.profit)} wide />
+      <Kpi label="Margin" value={result.margin * 100} format={pct} today={pct(today.margin * 100)} tone={sign(result.margin)} />
+      <Kpi label="Left to break even" value={result.gapToBreakeven} format={v => v > 0.05 ? money(v) : 'cleared'}
            today={money(Math.max(0, -today.profit))} tone={result.gapToBreakeven > 0 ? 'neg' : 'pos'} />
       <Kpi label={`Left to the ${levers.targetMarginPct.toFixed(1)}% target`}
-           value={result.gapToTarget > 0 ? money(result.gapToTarget) : 'cleared'}
+           value={result.gapToTarget} format={v => v > 0.05 ? money(v) : 'cleared'}
            today={money(today.target - today.profit)} tone={result.gapToTarget > 0 ? 'neg' : 'pos'} />
     </div>
 
 
-    {tab === 'scenario' && <div className="scenarioGrid">
+    {tab === 'scenario' && <div className="scenarioGrid viewFade" key="scenario">
       <aside className="levers">
         <div className="sectionhead"><span>The plan</span><small>Six pillars</small></div>
 
@@ -190,14 +191,13 @@ export default function ScenarioTool() {
         )) : <>
           <section className="pillar">
             <h3><span>1</span>Cut back the doubled routes</h3>
-            <p>Montréal–Vancouver, Toronto–Ottawa, Toronto–Montréal, Halifax–Toronto and
-               Halifax–Montréal, rolled back toward the frequency they flew before the expansion.</p>
-            <Slider label="Rollback tranches applied" value={Math.min(levers.tranche, 3)} min={0} max={3} suffix=""
+            <p>10 routes, back toward pre-expansion frequency.</p>
+            <Slider label="Tranches applied" value={Math.min(levers.tranche, 3)} min={0} max={3} suffix=""
                     onChange={v => set('tranche', levers.tranche >= 4 && v === 3 ? 4 : v)} />
-            <Slider label="How far toward the target frequency" value={levers.phase * 100} min={0} max={100} suffix="%"
+            <Slider label="Toward target frequency" value={levers.phase * 100} min={0} max={100} suffix="%"
                     onChange={v => set('phase', v / 100)} />
             <div className="leverGroup">
-              <span className="leverLabel">Revenue lost per flight cut (ρ)</span>
+              <span className="leverLabel">Revenue lost per flight cut</span>
               <div className="filterrow">
                 {Object.entries(presets.rhoDown).map(([name, value]) => (
                   <button key={name} className={`pill ${levers.rhoDown === value ? 'active' : ''}`}
@@ -207,58 +207,54 @@ export default function ScenarioTool() {
               <Slider label="" value={levers.rhoDown * 100} min={0} max={100} step={0.1} suffix="%"
                       onChange={v => set('rhoDown', v / 100)} />
             </div>
-            <Slider label="Crew cost shed on cut flights" value={levers.crewShed * 100} min={0} max={100} suffix="%"
+            <Slider label="Crew cost shed" value={levers.crewShed * 100} min={0} max={100} suffix="%"
                     onChange={v => set('crewShed', v / 100)} />
           </section>
 
           <section className="pillar">
             <h3><span>2</span>Raise fares on the stable routes</h3>
-            <p>The 38 Protect routes only. Cost pass-through is {presets.costPassThroughFarePct}%.</p>
+            <p>38 stable routes. Cost pass-through is {presets.costPassThroughFarePct}%.</p>
             <Slider label="Fare change" value={levers.farePct} min={0} max={15} suffix="%" step={0.05}
                     onChange={v => set('farePct', v)} />
-            <Slider label="Demand elasticity (assumed)" value={levers.elasticity * 100} min={-150} max={0} suffix=""
+            <Slider label="Elasticity (assumed)" value={levers.elasticity * 100} min={-150} max={0} suffix=""
                     onChange={v => set('elasticity', v / 100)} format={v => (v / 100).toFixed(2)} />
           </section>
 
           <section className="pillar">
             <h3><span>3</span>Fewer flights on the new routes</h3>
-            <p>Toronto–London and Halifax–Moncton re-cut to about ten tickets a flight;
-               Ottawa–Montréal exited.</p>
+            <p>London and Moncton re-cut, Ottawa–Montréal exited.</p>
             <label className="toggle">
               <input type="checkbox" checked={levers.tranche >= 4} disabled={levers.tranche < 3}
                      onChange={e => set('tranche', e.target.checked ? 4 : 3)} />
-              <span>Apply the Decide changes{levers.tranche < 3 ? ' — follows the third rollback tranche' : ''}</span>
+              <span>Apply{levers.tranche < 3 ? ' (after tranche 3)' : ''}</span>
             </label>
           </section>
 
           <section className="pillar">
             <h3><span>4</span>Hand back the idle gates</h3>
-            <p>Halifax A3 and Ottawa A2 carry no route. Their leases run to the calendar year,
-               not the fiscal one.</p>
+            <p>Halifax A3 and Ottawa A2 carry no route.</p>
             <label className="toggle">
               <input type="checkbox" checked={levers.releaseIdleGates}
                      onChange={e => set('releaseIdleGates', e.target.checked)} />
-              <span>Release them (−{money(constants.idleGatesReleasable)} a year)</span>
+              <span>Release them (−{money(constants.idleGatesReleasable)})</span>
             </label>
             <label className="toggle">
               <input type="checkbox" checked={levers.gates === 'forecast'}
                      onChange={e => set('gates', e.target.checked ? 'forecast' : 'actual')} />
-              <span>Price gates at the 2026-27 forecast</span>
+              <span>2026-27 gate forecast</span>
             </label>
           </section>
 
           <section className="pillar quiet">
             <h3><span>5–6</span>Seasonality</h3>
             <p>
-              The network already flies 28% fewer flights in Dec–Feb than Jun–Aug, but
-              St John&apos;s holds at 87% of its summer schedule through the winter. Trimming
-              it is the right call and is <b>not</b> modelled here: the plan works on annual
-              frequency, so a month-by-month cut would need a model this one does not have.
+              St John&apos;s holds 87% of its summer schedule through winter; the network
+              flies 28% less. <b>Not modelled</b> — the plan works on annual frequency.
             </p>
             <label className="toggle">
               <input type="checkbox" checked={levers.seasonal}
                      onChange={e => set('seasonal', e.target.checked)} />
-              <span>Hold the Restore targets to the seasonal baseline (×{constants.seasonalFactor})</span>
+              <span>Seasonal baseline on Restore (×{constants.seasonalFactor})</span>
             </label>
           </section>
 
@@ -279,7 +275,7 @@ export default function ScenarioTool() {
 
     </div>}
 
-    {tab === 'data' && <div className="nbMain dataView">
+    {tab === 'data' && <div className="nbMain dataView viewFade" key="data">
       <div className="panel">
           <div className="sectionhead"><span>From today to this scenario</span>
             <small>PROFIT AFTER GATES</small></div>
@@ -425,11 +421,12 @@ export default function ScenarioTool() {
   </section>;
 }
 
-function Kpi({ label, value, today, tone = '', wide = false }:
-             { label: string; value: string; today: string; tone?: string; wide?: boolean }) {
+function Kpi({ label, value, format, today, tone = '', wide = false }:
+             { label: string; value: number; format: (v: number) => string;
+               today: string; tone?: string; wide?: boolean }) {
   return <div className={`kpi ${wide ? 'wide' : ''}`}>
     <small>{label}</small>
-    <b className={tone}>{value}</b>
+    <b className={tone}><Figure value={value} format={format} /></b>
     <span>today {today}</span>
   </div>;
 }

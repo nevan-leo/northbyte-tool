@@ -69,7 +69,8 @@ levers allow, so moving a lever moves the whole projection.
 One aircraft stands for a fixed number of flights a month — about 14 — measured
 against the busiest route-month ever flown rather than against whatever is on
 screen, so cutting flights visibly thins the traffic: 105 aircraft today, 65
-under the plan. Every airport is named. The map itself is drawn plainly from the
+under the plan. The nine busiest airports are named; the rest stay as dots,
+because twenty labels at this scale overlap into mush. The map itself is drawn plainly from the
 Natural Earth geometry, with no data shading over it. Pinch or the buttons to zoom, drag to pan; symbols scale against the
 frame, so aircraft, dots, labels and line weights hold their size on screen at
 any zoom.
@@ -86,6 +87,10 @@ set is too coarse to read as Canada once simplified enough to ship.
 ```bash
 scripts/build_map_data.py    # regenerates app/data/northbyte-map.json
 ```
+
+Figures ease to their new value rather than snapping, arcs and bars transition
+their weight, and switching view fades in — all between 150 and 450ms, all tied
+to something actually changing, and all off under `prefers-reduced-motion`.
 
 Aircraft are Material Symbols' `flight` glyph, which is also the mark and the
 favicon, positioned by writing each node's

@@ -330,3 +330,24 @@ button { cursor:pointer; }
 .pillar .toggle { margin-top:var(--s3); }
 .pillar.quiet h3 span { background:var(--tan); color:var(--ink); }
 .pillar.quiet p b { color:var(--ink-2); }
+
+/* --------------------------------------------------------- transitions --- */
+/* Short, eased, and tied to something changing. Nothing moves for decoration. */
+@keyframes viewIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@keyframes markIn { from { opacity:0; } to { opacity:1; } }
+
+.viewFade { animation:viewIn .28s cubic-bezier(.2,.6,.2,1) both; }
+.kpi b, .readoutGrid b, .mapReadout b { transition:color .2s ease; }
+.mapSvg path[stroke] { transition:stroke-width .45s cubic-bezier(.2,.6,.2,1),
+                                   stroke-opacity .45s cubic-bezier(.2,.6,.2,1); }
+.fleet > g { animation:markIn .4s ease both; }
+.tick i { transition:background .15s ease, height .45s cubic-bezier(.2,.6,.2,1); }
+.wfBar { transition:width .45s cubic-bezier(.2,.6,.2,1); }
+.bar { transition:width .45s cubic-bezier(.2,.6,.2,1); }
+.mapReadout small, .mapReadout .mapDelta { transition:opacity .2s ease; }
+.pill, .tab, .toggle span { transition:background .15s ease, color .15s ease, border-color .15s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .viewFade, .fleet > g { animation:none; }
+  .mapSvg path[stroke], .tick i, .wfBar, .bar { transition:none; }
+}

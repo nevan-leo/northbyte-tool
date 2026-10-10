@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2, Pause, Play, ZoomIn, ZoomOut } from 'lucide-react';
 import map from '../data/northbyte-map.json';
 import { routes, type Route } from './model';
+import { Figure } from './Figure';
 import { FLIGHT_PATH } from './Brand';
 
 // The network as it is flown: one arc per route, and aircraft moving along it in
@@ -14,7 +15,7 @@ import { FLIGHT_PATH } from './Brand';
 // plain SVG, so the frame pastes into a design tool as vectors and nothing is
 // fetched at runtime.
 
-const AIRPORTS = map.airports as Record<string, { x: number; y: number; city: string }>;
+const AIRPORTS = map.airports as Record<string, { x: number; y: number; city: string; rank: number }>;
 const LAND = map.land as { d: string; code: string }[];
 const MONTHLY = map.monthlyFlights as Record<string, number[]>;
 const HUBS = ['YVR', 'YYC', 'YEG', 'YWG', 'YYZ', 'YOW', 'YUL', 'YHZ', 'YYT'];
@@ -213,9 +214,10 @@ export default function NetworkMap({
         {Object.entries(AIRPORTS).map(([code, a]) => (
           <circle key={code} cx={a.x} cy={a.y} r={(HUBS.includes(code) ? 4 : 3) * k} className="mapDot" />
         ))}
-        {/* Every airport is named. Labels sit to the left for the eastern cluster
-            so they do not pile up on the routes leaving it. */}
-        {Object.entries(AIRPORTS).map(([code, a]) => {
+        {/* Only the busiest airports are named: twenty labels at this scale
+            overlap into mush. Labels sit to the left for the eastern cluster so
+            they do not pile up on the routes leaving it. */}
+        {Object.entries(AIRPORTS).filter(([, a]) => a.rank < 9).map(([code, a]) => {
           const flip = LABEL_LEFT.includes(code);
           return <text key={code} x={a.x + (flip ? -8 : 8) * k} y={a.y + 4 * k}
                        textAnchor={flip ? 'end' : 'start'}
@@ -233,13 +235,13 @@ export default function NetworkMap({
 
       <div className="mapReadout">
         <small>{isForecast ? `Forecast · ${step.label}` : `Last month flown · ${monthLabel(months[nowIndex])}`}</small>
-        <b>{Math.round(total).toLocaleString('en-US')}</b>
+        <b><Figure value={total} format={v => Math.round(v).toLocaleString('en-US')} /></b>
         <span>flights in the month</span>
         {/* Against the busiest month flown, so the size of the cut is legible
             without clicking back and forth. */}
         <span className={`mapDelta ${isForecast && recovered > 0 ? 'up' : ''}`}>
           {isForecast
-            ? `+$${(recovered / 1_000_000).toFixed(1)}M profit a year vs today`
+            ? <><Figure value={recovered / 1_000_000} format={v => `+$${v.toFixed(1)}M`} /> profit a year vs today</>
             : `${change < 0 ? '−' : '+'}${Math.abs(change)}% flights vs the pre-expansion months`}
         </span>
       </div>

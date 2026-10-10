@@ -169,15 +169,26 @@ ay = [a[1] for a in (place(*projected_airports[c]) for c in projected_airports)]
 x0, y0 = min(ax) - 40, min(ay) - 90
 view = (x0, y0, max(ax) - x0 + 40, max(ay) - y0 + 60)
 
+traffic = {}
+for route, counts in monthly.items():
+    origin, destination = route.split("-")
+    for code in (origin, destination):
+        traffic[code] = traffic.get(code, 0) + sum(counts)
+rank_of = {code: i for i, code in
+           enumerate(sorted(traffic, key=lambda c: -traffic[c]))}
+
 payload = {
     "viewBox": " ".join(str(round(v)) for v in view),
     "land": paths,
     "airportRegion": airport_region,
     "neighbours": neighbours,
     "lakes": lake_paths,
+    # Rank by total traffic so the map can name the airports that matter and
+    # leave the rest as dots: at this scale twenty labels overlap into mush.
     "airports": {code: {"x": place(*projected_airports[code])[0],
                         "y": place(*projected_airports[code])[1],
-                        "city": airports[code][2]}
+                        "city": airports[code][2],
+                        "rank": rank_of[code]}
                  for code in sorted(airports)},
     "months": months,
     "monthlyFlights": monthly,
