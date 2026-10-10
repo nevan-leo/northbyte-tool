@@ -8,20 +8,27 @@
    values are used anywhere in this file.
    ========================================================================= */
 :root {
-  --paper:#ffffff;
-  --paper-2:#f6f6f4;
-  --ink:#111111;
-  --ink-2:#444444;
-  --ink-3:#6b6b6b;          /* 5.3:1 on white, safe for 11px labels */
-  --line:#e4e4e1;
-  --line-2:#111111;
-  --red:#c8102e;            /* 5.9:1 on white */
-  --red-tint:#fdeaec;
-  --grey:#8a8a8a;           /* third categorical, between ink and red */
+  /* Earth palette. Three jobs: warm paper, dark earth ink, and a clay accent
+     that is reserved for loss and for the mark, so a clay number always means
+     the same thing. Moss marks an improvement, and nothing else. */
+  --paper:#faf7f2;          /* bone */
+  --paper-2:#f1ebe1;        /* sand */
+  --ink:#2b2521;            /* dark earth, 14.6:1 on bone */
+  --ink-2:#574d44;
+  --ink-3:#6f6559;          /* 5.3:1 on bone, safe at 11px */
+  --line:#e2d9cc;
+  --line-2:#2b2521;
+  --clay:#9c3a28;           /* 6.4:1 on bone */
+  --clay-tint:#f3e3dd;
+  --moss:#4f6b4a;           /* 5.3:1 on bone */
+  --grey:#9a8f7c;           /* third categorical: dry grass */
+
+  /* Kept so existing rules read naturally; clay is the accent everywhere. */
+  --red:var(--clay);
 
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
   --r:4px;
-  --elevation:0 1px 2px rgba(17,17,17,.05);
+  --elevation:0 1px 2px rgba(43,37,33,.06);
 
   --t-display:clamp(38px,4.4vw,58px);
   --t-figure:26px;
@@ -100,7 +107,7 @@ button { cursor:pointer; }
 }
 .slider input[type=range]::-moz-range-thumb { width:14px; height:14px; border-radius:var(--r); background:var(--ink); border:none; }
 
-.pos { color:var(--ink); }
+.pos { color:var(--moss); }
 .neg { color:var(--red); }
 
 /* --------------------------------------------------------------- tool --- */
@@ -177,7 +184,7 @@ button { cursor:pointer; }
 .barLabel { color:var(--ink-2); }
 .barTrack { position:relative; height:var(--s4); background:var(--paper-2); border-radius:var(--r); }
 .bar { position:absolute; left:0; top:0; height:100%; border-radius:var(--r); }
-.bar.ghost { background:var(--line); }
+.bar.ghost { background:#d9cfc0; }
 .bar.restore { background:var(--red); }
 .bar.decide { background:var(--grey); }
 .bar.protect { background:var(--ink); }
@@ -229,7 +236,7 @@ button { cursor:pointer; }
 .mapSvg { display:block; width:100%; height:auto; max-height:560px; touch-action:none; cursor:grab; }
 .mapSvg.zoomed { cursor:grab; }
 .mapSvg:active { cursor:grabbing; }
-.mapLand { fill:#efefec; stroke:#dcdcd8; stroke-width:1; }
+.mapLand { fill:#e9e0d1; stroke:#d6cab5; stroke-width:1; }
 .mapDot { fill:var(--ink); }
 /* A white halo keeps codes readable where arcs converge on a hub. Size and halo
    are set on the element so they can track the zoom. */
@@ -244,7 +251,7 @@ button { cursor:pointer; }
   font-size:40px; line-height:1.1; letter-spacing:-.02em; margin:var(--s1) 0; }
 .mapReadout span { display:block; font-size:var(--t-small); color:var(--ink-3); }
 .mapReadout .mapDelta { margin-top:var(--s1); color:var(--red); font-weight:600; }
-.mapReadout .mapDelta.up { color:var(--ink); }
+.mapReadout .mapDelta.up { color:var(--moss); }
 
 .timeline { display:grid; grid-template-columns:auto minmax(0,1fr); grid-template-areas:'play track' 'play axis'; gap:0 var(--s4); align-items:end; }
 .playToggle { grid-area:play; align-self:center; min-width:72px; }
@@ -255,7 +262,7 @@ button { cursor:pointer; }
 .tick i { display:block; width:100%; background:var(--line); border-radius:var(--r); transition:background .12s ease; }
 .tick:hover i { background:var(--ink-3); }
 .tick.now i { background:var(--ink); }
-.tick.ahead i { background:#f0ced3; }           /* forecast reads lighter than flown */
+.tick.ahead i { background:#e3c9c0; }           /* forecast reads lighter than flown */
 .tick.ahead.on i, .tick.ahead:hover i { background:var(--red); }
 .tick.on.now i { background:var(--ink); }
 .tick.on::after { content:''; position:absolute; inset:auto 0 -6px; height:2px; background:var(--ink); }
@@ -288,8 +295,8 @@ button { cursor:pointer; }
 .dataView { margin-top:var(--s5); }
 .playToggle { display:inline-flex; align-items:center; gap:var(--s2); }
 
-.mapNeighbour { fill:#fafaf8; stroke:#ececea; stroke-width:1; }
-.mapWater { fill:var(--paper); stroke:var(--line); stroke-width:.8; }
+.mapNeighbour { fill:#f4efe5; stroke:#e6ddd0; stroke-width:1; }
+.mapWater { fill:#dce5e4; stroke:#cbd6d4; stroke-width:.8; }
 .fleet { pointer-events:none; }
 @media (max-width:1080px) { .scenarioGrid { grid-template-columns:minmax(0,1fr); } }
 .sortIcon { display:inline-block; vertical-align:-1px; margin-left:2px; }

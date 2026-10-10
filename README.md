@@ -13,6 +13,12 @@ npx esbuild scripts/verify_northbyte.ts --bundle --platform=node --format=esm \
   --outfile=/tmp/verify.mjs && node /tmp/verify.mjs
 ```
 
+## Palette
+
+Earth tones on bone paper: dark earth ink, a clay accent reserved for loss and
+for the mark, moss reserved for an improvement, and dry grass as the third
+categorical. The map is sand land, earth shading and sage water.
+
 ## Two views
 
 **Scenario** carries the levers, the map and the scoreboard: the live demo.
@@ -21,18 +27,23 @@ route tables and the assumption list: the evidence a judge asks for.
 
 ## The map
 
-The opening frame is the network as it is flown **today** — Aug 2026, the last
-month in the data, at 1,474 flights, 76% above the pre-expansion months. The
-timeline then runs **forward**: twelve months of the rollback phasing in, one
-tranche a quarter, ending at 907 flights a month, 38% below today. Tranche
-landings are marked on the axis.
+The opening frame is the network as it was last flown — **Aug 2026**, when the
+fiscal year closed, at 1,474 flights a month, 76% above the pre-expansion
+window. The timeline then runs **forward from the month after the one we are
+actually in**: twelve months of the rollback phasing in, one tranche a quarter,
+ending at 907 flights a month and **+$58.0M of profit a year against today**.
+Tranche landings are marked on the axis.
+
+The readout leads with the profit recovered rather than the flights cut, because
+the cut is the means and the recovery is the point. Gaps elsewhere read as what
+there is to close, not as a negative target to aim at.
 
 The forecast is the model on a calendar, not a separate assumption: each month
 asks `scenario()` for the tranches applied by then, capped by the tranche the
 levers allow, so moving a lever moves the whole projection.
 
-Provinces are shaded by departures, line weight and aircraft follow flights per
-month. Wheel or the buttons to zoom, drag to pan; symbols scale against the
+Provinces are shaded by departures on a sand-to-earth ramp, line weight and
+aircraft follow flights per month. Wheel or the buttons to zoom, drag to pan; symbols scale against the
 frame, so aircraft, dots, labels and line weights hold their size on screen at
 any zoom.
 

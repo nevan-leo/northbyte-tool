@@ -14,7 +14,8 @@ sys.path.insert(0, "/private/tmp/claude-501/-Users-nevanleo/"
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 W, H = 1200, 630
-PAPER, INK, INK3, RED, LINE = "#ffffff", "#111111", "#6b6b6b", "#c8102e", "#e4e4e1"
+PAPER, INK, INK3, RED, LINE = "#faf7f2", "#2b2521", "#6f6559", "#9c3a28", "#e2d9cc"
+MOSS = "#4f6b4a"
 BOLD = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
 REG = "/System/Library/Fonts/Supplemental/Arial.ttf"
 font = lambda path, size: ImageFont.truetype(path, size)
@@ -37,7 +38,7 @@ draw.line([M, 422, W - M, 422], fill=LINE, width=1)
 stats = [("FY25-26 PROFIT AFTER GATES", "−$58.8M", RED),
          ("FLIGHTS", "15,729", INK),
          ("ROUTES", "54", INK),
-         ("RECOMMENDED PLAN", "−$0.8M", INK)]
+         ("PLAN RECOVERS", "+$58.0M", MOSS)]
 x = M
 for label, value, colour in stats:
     draw.text((x, 454), label, font=font(REG, 13), fill=INK3)

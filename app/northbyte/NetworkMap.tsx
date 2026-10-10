@@ -49,13 +49,16 @@ const BASE: Box = (() => {
 })();
 const MAX_ZOOM = 8;
 
-export type ForecastStep = { label: string; tranche: number; flights: Record<string, number> };
+export type ForecastStep = {
+  label: string; tranche: number; profit: number; flights: Record<string, number>;
+};
 
 export default function NetworkMap({
-  forecast, selected, onSelect, playing, onTogglePlay,
+  forecast, todayProfit, selected, onSelect, playing, onTogglePlay,
 }: {
   forecast: ForecastStep[];           // annual flights per route, month by month
-  selected: number;                   // 0 = now (flown), 1..n = months ahead
+  todayProfit: number;                // profit after gates as things stand
+  selected: number;                   // 0 = today, 1..n = months ahead
   onSelect: (index: number) => void;
   playing: boolean;
   onTogglePlay: () => void;
@@ -160,10 +163,10 @@ export default function NetworkMap({
   // Sep 2024 - Feb 2025 is the pre-expansion window the rollback aims at, and is
   // the only fair yardstick for where the airline stands today.
   const preExpansion = totals.slice(0, 6).reduce((a, v) => a + v, 0) / 6;
-  const against = isForecast
-    ? { value: now, label: `today (${monthLabel(months[nowIndex])})` }
-    : { value: preExpansion, label: 'the pre-expansion months' };
-  const change = against.value > 0 ? Math.round((total / against.value - 1) * 100) : 0;
+  const change = preExpansion > 0 ? Math.round((total / preExpansion - 1) * 100) : 0;
+  // What the plan is for. A cut in flights is the means; the profit it recovers
+  // is the thing worth putting on the slide.
+  const recovered = isForecast ? step.profit - todayProfit : 0;
 
   return <div className="mapBlock">
     <div className="mapFrame">
@@ -172,7 +175,7 @@ export default function NetworkMap({
            onPointerDown={onPointerDown} onPointerMove={onPointerMove}
            onPointerUp={endDrag} onPointerLeave={endDrag}
            role="img"
-           aria-label={`NorthByte network, ${isForecast ? `forecast ${step.label}` : `today, ${monthLabel(months[nowIndex])}`}: ${Math.round(total)} flights in the month`}>
+           aria-label={`NorthByte network, ${isForecast ? `forecast ${step.label}` : `last month flown, ${monthLabel(months[nowIndex])}`}: ${Math.round(total)} flights in the month`}>
         {(map.neighbours as string[]).map((d, i) => <path key={`n${i}`} d={d} className="mapNeighbour" />)}
         {LAND.map((shape, i) => (
           <path key={`l${i}`} d={shape.d} className="mapLand"
@@ -207,14 +210,15 @@ export default function NetworkMap({
       </div>
 
       <div className="mapReadout">
-        <small>{isForecast ? `Forecast · ${step.label}` : `Today · ${monthLabel(months[nowIndex])}`}</small>
+        <small>{isForecast ? `Forecast · ${step.label}` : `Last month flown · ${monthLabel(months[nowIndex])}`}</small>
         <b>{Math.round(total).toLocaleString('en-US')}</b>
         <span>flights in the month</span>
         {/* Against the busiest month flown, so the size of the cut is legible
             without clicking back and forth. */}
-        <span className={`mapDelta ${change > 0 ? 'up' : ''}`}>
-          {change === 0 ? `level with ${against.label}`
-            : `${change < 0 ? '−' : '+'}${Math.abs(change)}% vs ${against.label}`}
+        <span className={`mapDelta ${isForecast && recovered > 0 ? 'up' : ''}`}>
+          {isForecast
+            ? `+$${(recovered / 1_000_000).toFixed(1)}M profit a year vs today`
+            : `${change < 0 ? '−' : '+'}${Math.abs(change)}% flights vs the pre-expansion months`}
         </span>
       </div>
     </div>
@@ -234,8 +238,9 @@ export default function NetworkMap({
       <span className="rampLabel">Departures by province</span>
       <span className="legendNote">
         Aircraft and line weight follow flights per month; provinces are shaded by
-        departures. Today is the last month flown. The twelve months ahead are a
-        forecast of the plan phasing in, not a prediction of demand.
+        departures. The first column is the last month in the data, Aug 2026, when
+        the fiscal year closed. The twelve months ahead are a forecast of the plan
+        phasing in, not a prediction of demand.
       </span>
     </p>
   </div>;
@@ -323,7 +328,7 @@ function Timeline({ forecast, now, selected, onSelect, playing, onTogglePlay }: 
                 className={`tick ${index === 0 ? 'now' : 'ahead'} ${selected === index ? 'on' : ''}`}
                 onClick={() => onSelect(index)}
                 aria-label={index === 0
-                  ? `Today, ${Math.round(value).toLocaleString('en-US')} flights`
+                  ? `Last month flown, ${Math.round(value).toLocaleString('en-US')} flights`
                   : `${stepOf.label}, ${Math.round(value).toLocaleString('en-US')} flights, tranche ${stepOf.tranche} applied`}
                 aria-pressed={selected === index}>
           <i style={{ height: `${Math.max(3, (value / peak) * 100)}%` }} />
@@ -332,16 +337,16 @@ function Timeline({ forecast, now, selected, onSelect, playing, onTogglePlay }: 
       })}
     </div>
     <div className="trackAxis">
-      <span>Today</span><span>+3 months</span><span>+6</span><span>+9</span><span>+12</span>
+      <span>Last flown</span><span>+3 months</span><span>+6</span><span>+9</span><span>+12</span>
     </div>
   </div>;
 }
 
-/** Province fill: a grey ramp by departures, so the map carries volume too. */
+/** Province fill: sand to dry earth by departures, so the map carries volume too. */
 function shade(value: number, heaviest: number) {
   const share = heaviest > 0 ? value / heaviest : 0;
-  const tone = Math.round(239 - share * 54);        // #efefec down to a mid grey
-  return `rgb(${tone}, ${tone}, ${tone - 3})`;
+  const mix = (from: number, to: number) => Math.round(from + (to - from) * share);
+  return `rgb(${mix(233, 184)}, ${mix(224, 166)}, ${mix(209, 140)})`;
 }
 
 function monthLabel(month: string) {

@@ -59,15 +59,20 @@ export default function ScenarioTool() {
   // One tranche lands per quarter, never past the tranche the levers allow, so
   // the forecast is the plan on a calendar rather than a separate assumption.
   const forecast = useMemo<ForecastStep[]>(() => {
-    const start = new Date(2026, 8);                       // Sep 2026, the month after the data ends
+    // The books close at 31 Aug 2026; the plan can only start from the month
+    // after the one we are actually in, which is why this reads the clock
+    // rather than counting on from the end of the data.
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth() + 1);
     return Array.from({ length: FORECAST_MONTHS }, (_, i) => {
       const tranche = Math.min(levers.tranche, Math.floor(i / 3) + 1);
       const month = new Date(start.getFullYear(), start.getMonth() + i);
+      const projection = scenario({ ...levers, tranche });
       return {
         label: month.toLocaleString('en-US', { month: 'short', year: 'numeric' }),
         tranche,
-        flights: Object.fromEntries(
-          scenario({ ...levers, tranche }).byRoute.map(r => [r.route.Route, r.flights])),
+        profit: projection.profit,
+        flights: Object.fromEntries(projection.byRoute.map(r => [r.route.Route, r.flights])),
       };
     });
   }, [levers]);
@@ -159,11 +164,11 @@ export default function ScenarioTool() {
       <Kpi label="Gates" value={money(result.gates)} today={money(today.gates)} />
       <Kpi label="Profit after gates" value={money(result.profit)} today={money(today.profit)} tone={sign(result.profit)} wide />
       <Kpi label="Margin" value={pct(result.margin * 100)} today={pct(today.margin * 100)} tone={sign(result.margin)} />
-      <Kpi label="Gap to breakeven" value={result.gapToBreakeven > 0 ? money(-result.gapToBreakeven) : 'cleared'}
-           today={money(-Math.max(0, -today.profit))} tone={result.gapToBreakeven > 0 ? 'neg' : 'pos'} />
-      <Kpi label={`Gap to ${levers.targetMarginPct.toFixed(1)}% target`}
-           value={result.gapToTarget > 0 ? money(-result.gapToTarget) : 'cleared'}
-           today={money(-(today.target - today.profit))} tone={result.gapToTarget > 0 ? 'neg' : 'pos'} />
+      <Kpi label="Left to break even" value={result.gapToBreakeven > 0 ? money(result.gapToBreakeven) : 'cleared'}
+           today={money(Math.max(0, -today.profit))} tone={result.gapToBreakeven > 0 ? 'neg' : 'pos'} />
+      <Kpi label={`Left to the ${levers.targetMarginPct.toFixed(1)}% target`}
+           value={result.gapToTarget > 0 ? money(result.gapToTarget) : 'cleared'}
+           today={money(today.target - today.profit)} tone={result.gapToTarget > 0 ? 'neg' : 'pos'} />
     </div>
 
 
@@ -227,9 +232,9 @@ export default function ScenarioTool() {
     <div className="panel mapPanel">
       <div className="sectionhead">
         <span>Where the flights go</span>
-        <small>Flights per month · today and twelve months ahead</small>
+        <small>Flights per month · the twelve months ahead</small>
       </div>
-      <NetworkMap forecast={forecast} selected={step} onSelect={setStep}
+      <NetworkMap forecast={forecast} todayProfit={today.profit} selected={step} onSelect={setStep}
                   playing={playing} onTogglePlay={() => setPlaying(p => !p)} />
     </div>
 
