@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import NetworkMap from './NetworkMap';
 import {
   scenario, routes, constants, presets, DEFAULT_LEVERS, TODAY_LEVERS, COHORTS,
   requiredFarePct, breakevenRhoDown, protectTicketRevenue,
@@ -25,6 +26,16 @@ const PRESETS: Record<string, Levers> = {
 export default function ScenarioTool() {
   const [levers, setLevers] = useState<Levers>(PRESETS['Full plan']);
   const [cohortFilter, setCohortFilter] = useState<'All' | Cohort>('All');
+  const MONTHS = 24, PLAN_STEP = MONTHS;
+  const [step, setStep] = useState(PLAN_STEP);   // opens on the plan, the recommendation
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    if (!playing) return;
+    const id = window.setInterval(
+      () => setStep(current => (current >= PLAN_STEP ? 0 : current + 1)), 650);
+    return () => window.clearInterval(id);
+  }, [playing, PLAN_STEP]);
   type SortKey = 'contribution' | 'delta' | 'flights';
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'contribution', dir: 1 });
   const toggleSort = (key: SortKey) =>
@@ -40,6 +51,10 @@ export default function ScenarioTool() {
   const fareForTarget = requiredFarePct(Math.max(0, result.gapToTarget), levers.elasticity, protectTicketRevenue);
 
   // Waterfall: today's profit to the scenario profit, one step per lever family.
+  const scenarioFlights = useMemo(
+    () => Object.fromEntries(result.byRoute.map(r => [r.route.Route, r.flights])),
+    [result]);
+
   const steps = useMemo(() => {
     const cohortStep = (cohort: Cohort) => {
       const fare = result.byRoute
@@ -120,6 +135,15 @@ export default function ScenarioTool() {
       <Kpi label={`Gap to ${levers.targetMarginPct.toFixed(1)}% target`}
            value={result.gapToTarget > 0 ? money(-result.gapToTarget) : 'cleared'}
            today={money(-(today.target - today.profit))} tone={result.gapToTarget > 0 ? 'neg' : 'pos'} />
+    </div>
+
+    <div className="panel mapPanel">
+      <div className="sectionhead">
+        <span>Where the flights go</span>
+        <small>Flights per month · 54 routes</small>
+      </div>
+      <NetworkMap scenarioFlights={scenarioFlights} selected={step} onSelect={setStep}
+                  playing={playing} onTogglePlay={() => setPlaying(p => !p)} />
     </div>
 
     <div className="nbGrid">

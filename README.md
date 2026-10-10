@@ -13,6 +13,29 @@ npx esbuild scripts/verify_northbyte.ts --bundle --platform=node --format=esm \
   --outfile=/tmp/verify.mjs && node /tmp/verify.mjs
 ```
 
+## The map
+
+The opening frame is the network as it is flown: one arc per route, with line
+weight and a population of aircraft in proportion to flights per month. Scrub the
+timeline and the traffic thins — Jul 2025 carried 1,478 flights in the month, the
+recommended plan carries 907, a 39% cut.
+
+The 24 months on that timeline are **real**, counted from the cost file as
+distinct (route, departure timestamp) pairs; only the step marked *Plan* is a
+scenario, and the legend says so. Everything is plain SVG at coordinates
+projected in `scripts/build_map_data.py` (Lambert conformal conic, the standard
+projection for Canada, from the public-domain Natural Earth 110m outline), so the
+frame can be pasted into a design tool as vectors rather than a raster map, and
+no tiles are fetched at runtime.
+
+```bash
+scripts/build_map_data.py    # regenerates app/data/northbyte-map.json
+```
+
+Aircraft drift along the arcs; `prefers-reduced-motion` holds them still, and the
+static frame carries the same information because density, not movement, is the
+signal.
+
 `app/northbyte/model.ts` implements the brief's model exactly; every figure the
 interface shows comes out of `scenario()`. The 54-route table is embedded as JSON
 at build time, so the page runs with no server call and no fetch.
@@ -70,6 +93,8 @@ The page is the tool: no other views, no map, no server calls.
 | `app/page.tsx` | the shell — header plus the tool |
 | `app/northbyte/model.ts` | the model from section 5 of the brief |
 | `app/northbyte/ScenarioTool.tsx` | every screen from section 6 |
+| `app/northbyte/NetworkMap.tsx` | the map, the aircraft and the month timeline |
+| `app/data/northbyte-map.json` | projected outline, airports and flights per route per month |
 | `app/data/northbyte.json` | the 54-route table, embedded at build time |
 | `scripts/build_northbyte_json.py` | rebuilds that JSON from `route_model.csv` |
 | `scripts/normalize_firstbyte.py` | cleans the three source workbooks, counting every repair |

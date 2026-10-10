@@ -220,3 +220,43 @@ button { cursor:pointer; }
   .nbPresets { flex-wrap:wrap; }
   .nbPresets .reset { margin-left:0; }
 }
+
+/* ------------------------------------------------------------- network --- */
+.mapPanel { margin-top:var(--s5); }
+.mapBlock { display:flex; flex-direction:column; gap:var(--s4); }
+.mapFrame { position:relative; }
+/* Capped so the frame stays slide-shaped; the projection letterboxes to fit. */
+.mapSvg { display:block; width:100%; height:auto; max-height:560px; }
+.mapLand { fill:var(--paper-2); stroke:var(--line); stroke-width:1.2; }
+.mapDot { fill:var(--ink); }
+/* A white halo keeps codes readable where arcs converge on a hub. */
+.mapLabel { font-family:var(--font-geist-mono),monospace; font-size:13px; fill:var(--ink);
+  paint-order:stroke; stroke:var(--paper); stroke-width:3px; stroke-linejoin:round; }
+.mapReadout { position:absolute; left:0; top:0; pointer-events:none; }
+.mapReadout small { display:block; font-size:var(--t-label); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); }
+.mapReadout b { display:block; font-family:var(--font-geist-mono),monospace; font-variant-numeric:tabular-nums;
+  font-size:40px; line-height:1.1; letter-spacing:-.02em; margin:var(--s1) 0; }
+.mapReadout span { display:block; font-size:var(--t-small); color:var(--ink-3); }
+.mapReadout .mapDelta { margin-top:var(--s1); color:var(--red); font-weight:600; }
+
+.timeline { display:grid; grid-template-columns:auto minmax(0,1fr); grid-template-areas:'play track' 'play axis'; gap:0 var(--s4); align-items:end; }
+.playToggle { grid-area:play; align-self:center; min-width:72px; }
+.track { grid-area:track; display:flex; align-items:flex-end; gap:2px; height:56px; }
+.trackGap { width:var(--s4); }
+.tick { flex:1; height:100%; display:flex; align-items:flex-end; background:none; border:0; padding:0; }
+.tick i { display:block; width:100%; background:var(--line); border-radius:var(--r); transition:background .12s ease; }
+.tick:hover i { background:var(--ink-3); }
+.tick.on i { background:var(--ink); }
+.tick.plan { flex:0 0 28px; }
+.tick.plan i { background:var(--red); opacity:.35; }
+.tick.plan.on i { opacity:1; }
+.trackAxis { grid-area:axis; display:flex; justify-content:space-between;
+  font-size:var(--t-label); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); padding-top:var(--s2); }
+.legendNote { color:var(--ink-3); margin-left:var(--s3); }
+@media (max-width:720px) {
+  .mapReadout { position:static; margin-bottom:var(--s3); }
+  .mapReadout b { font-size:28px; }
+  .timeline { grid-template-columns:1fr; grid-template-areas:'track' 'axis' 'play'; gap:var(--s2); }
+  .playToggle { justify-self:start; margin-top:var(--s2); }
+  .trackAxis span:nth-child(2), .trackAxis span:nth-child(4) { display:none; }
+}
