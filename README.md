@@ -13,6 +13,12 @@ npx esbuild scripts/verify_northbyte.ts --bundle --platform=node --format=esm \
   --outfile=/tmp/verify.mjs && node /tmp/verify.mjs
 ```
 
+## Two views
+
+**Scenario** carries the levers, the map and the scoreboard: the live demo.
+**Data and assumptions** carries the waterfall, the readouts, the cohort and
+route tables and the assumption list: the evidence a judge asks for.
+
 ## The map
 
 The opening frame is the network as it is flown: one arc per route, with line
@@ -24,15 +30,19 @@ The 24 months on that timeline are **real**, counted from the cost file as
 distinct (route, departure timestamp) pairs; only the step marked *Plan* is a
 scenario, and the legend says so. Everything is plain SVG at coordinates
 projected in `scripts/build_map_data.py` (Lambert conformal conic, the standard
-projection for Canada, from the public-domain Natural Earth 110m outline), so the
-frame can be pasted into a design tool as vectors rather than a raster map, and
-no tiles are fetched at runtime.
+projection for Canada) from the public-domain Natural Earth 1:50m provinces,
+country outlines and lakes, so the frame can be pasted into a design tool as
+vectors rather than a raster map, and no tiles are fetched at runtime. The 1:110m
+set is too coarse to read as Canada once simplified enough to ship.
 
 ```bash
 scripts/build_map_data.py    # regenerates app/data/northbyte-map.json
 ```
 
-Aircraft drift along the arcs; `prefers-reduced-motion` holds them still, and the
+Aircraft are drawn as silhouettes and positioned by writing each node's
+transform inside the animation frame rather than through React, since a hundred
+and forty glyphs at sixty frames a second is not a state update. Icons elsewhere
+are Lucide; `prefers-reduced-motion` holds them still, and the
 static frame carries the same information because density, not movement, is the
 signal.
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, RotateCcw } from 'lucide-react';
 import NetworkMap from './NetworkMap';
 import {
   scenario, routes, constants, presets, DEFAULT_LEVERS, TODAY_LEVERS, COHORTS,
@@ -25,6 +26,7 @@ const PRESETS: Record<string, Levers> = {
 
 export default function ScenarioTool() {
   const [levers, setLevers] = useState<Levers>(PRESETS['Full plan']);
+  const [tab, setTab] = useState<'scenario' | 'data'>('scenario');
   const [cohortFilter, setCohortFilter] = useState<'All' | Cohort>('All');
   const MONTHS = 24, PLAN_STEP = MONTHS;
   const [step, setStep] = useState(PLAN_STEP);   // opens on the plan, the recommendation
@@ -90,7 +92,9 @@ export default function ScenarioTool() {
       ? (sort.dir === 1 ? 'ascending' : 'descending')
       : undefined) as 'ascending' | 'descending' | undefined,
   });
-  const arrow = (key: SortKey) => (sort.key === key ? (sort.dir === 1 ? ' ↑' : ' ↓') : '');
+  const arrow = (key: SortKey) => sort.key !== key ? null
+    : sort.dir === 1 ? <ArrowUp size={11} aria-hidden className="sortIcon" />
+    : <ArrowDown size={11} aria-hidden className="sortIcon" />;
 
   const worst = useMemo(
     () => [...result.byRoute].sort((a, b) => a.contribution - b.contribution).slice(0, 10),
@@ -114,12 +118,22 @@ export default function ScenarioTool() {
       </p>
     </section>
 
+    <nav className="tabs" aria-label="Views">
+      {([['scenario', 'Scenario'], ['data', 'Data and assumptions']] as const).map(([id, label]) => (
+        <button key={id} className={`tab ${tab === id ? 'on' : ''}`}
+                aria-current={tab === id ? 'page' : undefined}
+                onClick={() => setTab(id)}>{label}</button>
+      ))}
+    </nav>
+
     <div className="nbPresets">
       {Object.keys(PRESETS).map(name => (
         <button key={name} className={`pill ${activePreset === name ? 'active' : ''}`}
                 onClick={() => setLevers(PRESETS[name])}>{name}</button>
       ))}
-      <button className="pill reset" onClick={() => setLevers(PRESETS['Full plan'])}>Reset</button>
+      <button className="pill reset" onClick={() => setLevers(PRESETS['Full plan'])}>
+        <RotateCcw size={13} aria-hidden /> Reset
+      </button>
     </div>
 
     <div className="kpiStrip">
@@ -137,16 +151,8 @@ export default function ScenarioTool() {
            today={money(-(today.target - today.profit))} tone={result.gapToTarget > 0 ? 'neg' : 'pos'} />
     </div>
 
-    <div className="panel mapPanel">
-      <div className="sectionhead">
-        <span>Where the flights go</span>
-        <small>Flights per month · 54 routes</small>
-      </div>
-      <NetworkMap scenarioFlights={scenarioFlights} selected={step} onSelect={setStep}
-                  playing={playing} onTogglePlay={() => setPlaying(p => !p)} />
-    </div>
 
-    <div className="nbGrid">
+    {tab === 'scenario' && <div className="scenarioGrid">
       <aside className="levers">
         <div className="sectionhead"><span>Levers</span><small>Assumptions</small></div>
 
@@ -203,13 +209,23 @@ export default function ScenarioTool() {
             <span>Seasonal baseline on Restore (×{constants.seasonalFactor})</span></label>
         </div>
       </aside>
+    <div className="panel mapPanel">
+      <div className="sectionhead">
+        <span>Where the flights go</span>
+        <small>Flights per month · 54 routes</small>
+      </div>
+      <NetworkMap scenarioFlights={scenarioFlights} selected={step} onSelect={setStep}
+                  playing={playing} onTogglePlay={() => setPlaying(p => !p)} />
+    </div>
 
-      <div className="nbMain">
-        <div className="panel">
+    </div>}
+
+    {tab === 'data' && <div className="nbMain dataView">
+      <div className="panel">
           <div className="sectionhead"><span>From today to this scenario</span>
             <small>PROFIT AFTER GATES</small></div>
           <Waterfall start={today.profit} end={result.profit} steps={steps} />
-        </div>
+      </div>
 
         <div className="panel readouts">
           <div className="sectionhead"><span>Readouts</span></div>
@@ -330,8 +346,6 @@ export default function ScenarioTool() {
             </table>
           </div>
         </div>
-      </div>
-    </div>
 
     <div className="assumptions">
       <b>What is assumption, not measurement.</b>
@@ -343,6 +357,8 @@ export default function ScenarioTool() {
         <li>These are scenarios, not forecasts, and nothing here establishes causation.</li>
       </ul>
     </div>
+    </div>}
+
     <div className="colophon">
       <span>BOLT UBC First Byte 2026 · NorthByte Airlines · FY25-26 (1 Sep 2025 – 31 Aug 2026)</span>
       <span>54 routes · 15,729 flights · all amounts in Canadian dollars</span>

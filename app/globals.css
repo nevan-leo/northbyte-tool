@@ -227,7 +227,7 @@ button { cursor:pointer; }
 .mapFrame { position:relative; }
 /* Capped so the frame stays slide-shaped; the projection letterboxes to fit. */
 .mapSvg { display:block; width:100%; height:auto; max-height:560px; }
-.mapLand { fill:var(--paper-2); stroke:var(--line); stroke-width:1.2; }
+.mapLand { fill:#efefec; stroke:#dcdcd8; stroke-width:1; }
 .mapDot { fill:var(--ink); }
 /* A white halo keeps codes readable where arcs converge on a hub. */
 .mapLabel { font-family:var(--font-geist-mono),monospace; font-size:13px; fill:var(--ink);
@@ -260,3 +260,23 @@ button { cursor:pointer; }
   .playToggle { justify-self:start; margin-top:var(--s2); }
   .trackAxis span:nth-child(2), .trackAxis span:nth-child(4) { display:none; }
 }
+
+/* ---------------------------------------------------------------- tabs --- */
+.tabs { display:flex; gap:var(--s5); border-bottom:1px solid var(--line); margin-bottom:var(--s5); }
+.tab { background:none; border:0; padding:0 0 var(--s3); color:var(--ink-3);
+  font-size:var(--t-body); border-bottom:2px solid transparent; margin-bottom:-1px; }
+.tab:hover { color:var(--ink-2); }
+.tab.on { color:var(--ink); border-bottom-color:var(--red); font-weight:600; }
+
+.scenarioGrid { display:grid; grid-template-columns:320px minmax(0,1fr); gap:var(--s5); align-items:start; margin-top:var(--s5); }
+.scenarioGrid .mapPanel { margin-top:0; }
+.dataView { margin-top:var(--s5); }
+.playToggle { display:inline-flex; align-items:center; gap:var(--s2); }
+
+.mapNeighbour { fill:#fafaf8; stroke:#ececea; stroke-width:1; }
+.mapWater { fill:var(--paper); stroke:var(--line); stroke-width:.8; }
+.fleet { pointer-events:none; }
+@media (max-width:1080px) { .scenarioGrid { grid-template-columns:minmax(0,1fr); } }
+.sortIcon { display:inline-block; vertical-align:-1px; margin-left:2px; }
+.nbPresets .reset { display:inline-flex; align-items:center; gap:var(--s2); }
+.brandmark svg { display:block; }

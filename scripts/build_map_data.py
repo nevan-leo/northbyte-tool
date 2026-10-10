@@ -10,11 +10,18 @@ numbers and the SVG can be pasted straight into a design tool as clean vectors.
 
 import json
 import math
+import sys
 import subprocess
 from pathlib import Path
 
+# Douglas-Peucker recurses once per retained point on a long coastline.
+sys.setrecursionlimit(20000)
+
 ROOT = Path(__file__).resolve().parent.parent
-NE = ROOT / "data" / "raw" / "geo" / "ne_110m_admin_0_countries.geojson"
+GEO = ROOT / "data" / "raw" / "geo"
+COUNTRIES = GEO / "ne_50m_admin_0_countries.geojson"
+PROVINCES = GEO / "ne_50m_admin_1_states_provinces.geojson"
+LAKES = GEO / "ne_50m_lakes.geojson"
 OUT = ROOT / "app" / "data" / "northbyte-map.json"
 PSQL = "/opt/homebrew/opt/postgresql@17/bin/psql"
 
@@ -70,16 +77,50 @@ def query(sql):
 
 
 # ------------------------------------------------------------------ land ----
-canada = next(f for f in json.loads(NE.read_text())["features"]
-              if f["properties"]["NAME"] == "Canada")
-rings = []
-for polygon in canada["geometry"]["coordinates"]:
-    ring = [lcc(lon, lat) for lon, lat in polygon[0]]
-    # Arctic islands add noise at this size without adding orientation.
-    area = abs(sum(ring[i][0] * ring[i - 1][1] - ring[i - 1][0] * ring[i][1]
-                   for i in range(len(ring)))) / 2
-    if area > 0.0012:
-        rings.append(simplify(ring, 0.004))
+# Natural Earth 1:50m. The 1:110m outline is too coarse to read as Canada once
+# it is simplified enough to ship; at 50m Hudson Bay, the Gulf and the Arctic
+# islands survive, which is what makes the map recognisable.
+
+def rings_of(geometry):
+    if geometry["type"] == "Polygon":
+        return [geometry["coordinates"][0]]
+    return [polygon[0] for polygon in geometry["coordinates"]]
+
+
+def shrink(ring, tolerance, min_area):
+    projected = [lcc(lon, lat) for lon, lat in ring]
+    area = abs(sum(projected[i][0] * projected[i - 1][1] - projected[i - 1][0] * projected[i][1]
+                   for i in range(len(projected)))) / 2
+    if area < min_area:
+        return None
+    return simplify(projected, tolerance)
+
+
+def collect(features, tolerance, min_area):
+    out = []
+    for feature in features:
+        for ring in rings_of(feature["geometry"]):
+            reduced = shrink(ring, tolerance, min_area)
+            if reduced and len(reduced) > 3:
+                out.append(reduced)
+    return out
+
+
+countries = json.loads(COUNTRIES.read_text())["features"]
+provinces = [f for f in json.loads(PROVINCES.read_text())["features"]
+             if f["properties"].get("admin") == "Canada"]
+lakes = [f for f in json.loads(LAKES.read_text())["features"]
+         if (f["properties"].get("name") or "") in {
+             "Lake Superior", "Lake Huron", "Lake Michigan", "Lake Erie", "Lake Ontario",
+             "Lake Winnipeg", "Great Bear Lake", "Great Slave Lake", "Lake Athabasca",
+             "Lake Nipigon", "Reindeer Lake", "Lake Manitoba"}]
+
+# Provinces carry the national outline and the internal borders in one pass.
+rings = collect(provinces, 0.0009, 0.00012)
+neighbour_rings = collect([f for f in countries
+                           if f["properties"]["NAME"] in ("United States of America", "Greenland")],
+                          0.0016, 0.0006)
+lake_rings = collect(lakes, 0.0006, 0.00002)
 
 airports = {code: (float(lon), float(lat), city) for code, city, lat, lon in
             [(r[0], r[1], r[2], r[3]) for r in
@@ -88,6 +129,7 @@ airports = {code: (float(lon), float(lat), city) for code, city, lat, lon in
 projected_airports = {code: lcc(lon, lat) for code, (lon, lat, _) in airports.items()}
 
 # ------------------------------------------------------- fit to a viewBox ----
+all_rings = rings + neighbour_rings + lake_rings
 xs = [x for ring in rings for x, _ in ring] + [p[0] for p in projected_airports.values()]
 ys = [y for ring in rings for _, y in ring] + [p[1] for p in projected_airports.values()]
 PAD, W = 24, 1000
@@ -97,10 +139,12 @@ H = round((max(ys) - min(ys)) * scale + 2 * PAD)
 place = lambda x, y: (round((x - min(xs)) * scale + PAD, 1),
                       round((max(ys) - y) * scale + PAD, 1))
 
-paths = []
-for ring in rings:
-    points = [place(x, y) for x, y in ring]
-    paths.append("M" + "L".join(f"{x} {y}" for x, y in points) + "Z")
+def to_path(ring):
+    return "M" + "L".join(f"{x} {y}" for x, y in (place(x, y) for x, y in ring)) + "Z"
+
+paths = [to_path(ring) for ring in rings]
+neighbours = [to_path(ring) for ring in neighbour_rings]
+lake_paths = [to_path(ring) for ring in lake_rings]
 
 # --------------------------------------------------------- flights/month ----
 rows = query("""
@@ -125,6 +169,8 @@ view = (x0, y0, max(ax) - x0 + 40, max(ay) - y0 + 60)
 payload = {
     "viewBox": " ".join(str(round(v)) for v in view),
     "land": paths,
+    "neighbours": neighbours,
+    "lakes": lake_paths,
     "airports": {code: {"x": place(*projected_airports[code])[0],
                         "y": place(*projected_airports[code])[1],
                         "city": airports[code][2]}
@@ -134,5 +180,6 @@ payload = {
     "monthlyTotals": [sum(counts[i] for counts in monthly.values()) for i in range(len(months))],
 }
 OUT.write_text(json.dumps(payload, separators=(",", ":")))
-print(f"{OUT.name}: viewBox {payload['viewBox']}, {len(paths)} land paths, "
-      f"{len(airports)} airports, {len(months)} months, {OUT.stat().st_size // 1024} KB")
+print(f"{OUT.name}: viewBox {payload['viewBox']} · {len(paths)} provinces, "
+      f"{len(neighbours)} neighbour shapes, {len(lake_paths)} lakes, {len(airports)} airports, "
+      f"{len(months)} months · {OUT.stat().st_size // 1024} KB")

@@ -1,15 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { Pause, Play } from 'lucide-react';
 import map from '../data/northbyte-map.json';
 import { routes, type Route } from './model';
+import { PLANE_PATH } from './Brand';
 
-// The network drawn as it is flown: one arc per route, and a population of
-// aircraft on it in proportion to how often it is flown. Cutting flights thins
-// the traffic, which is the point the deck has to land in one look.
+// The network as it is flown: one arc per route, and aircraft moving along it in
+// proportion to how often it is flown. Cutting flights thins the traffic, which
+// is the point the deck has to land in one look.
 //
-// Everything is plain SVG at projected coordinates (see scripts/build_map_data.py),
-// so the frame can be pasted into a design tool as vectors.
+// Geometry is projected ahead of time (scripts/build_map_data.py) and drawn as
+// plain SVG, so the frame pastes into a design tool as vectors and nothing is
+// fetched at runtime.
 
 const AIRPORTS = map.airports as Record<string, { x: number; y: number; city: string }>;
 const MONTHLY = map.monthlyFlights as Record<string, number[]>;
@@ -17,71 +20,64 @@ const HUBS = ['YVR', 'YYC', 'YEG', 'YWG', 'YYZ', 'YOW', 'YUL', 'YHZ', 'YYT'];
 const COHORT_COLOUR: Record<Route['Cohort'], string> = {
   Restore: 'var(--red)', Decide: 'var(--grey)', Protect: 'var(--ink)',
 };
+const MAX_PLANES_PER_ROUTE = 7;
+const LAP_MS = 3400;           // one end-to-end crossing
 
-/** Quadratic arc between two airports; the bow keeps opposite directions apart. */
-function arc(from: { x: number; y: number }, to: { x: number; y: number }) {
-  const mx = (from.x + to.x) / 2;
-  const my = (from.y + to.y) / 2;
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
+type Geometry = { x1: number; y1: number; cx: number; cy: number; x2: number; y2: number };
+
+function geometryFor(route: Route): Geometry | null {
+  const from = AIRPORTS[route.Dep], to = AIRPORTS[route.Arr];
+  if (!from || !to) return null;
+  const dx = to.x - from.x, dy = to.y - from.y;
   const length = Math.hypot(dx, dy) || 1;
-  const bow = Math.min(length * 0.16, 70);
-  return { cx: mx - (dy / length) * bow, cy: my + (dx / length) * bow };
-}
-
-function pointOn(from: { x: number; y: number }, c: { cx: number; cy: number },
-                 to: { x: number; y: number }, t: number) {
-  const u = 1 - t;
+  const bow = Math.min(length * 0.16, 70);   // keeps the two directions apart
   return {
-    x: u * u * from.x + 2 * u * t * c.cx + t * t * to.x,
-    y: u * u * from.y + 2 * u * t * c.cy + t * t * to.y,
+    x1: from.x, y1: from.y, x2: to.x, y2: to.y,
+    cx: (from.x + to.x) / 2 - (dy / length) * bow,
+    cy: (from.y + to.y) / 2 + (dx / length) * bow,
   };
 }
-
-export type MapRoute = { route: Route; flightsPerMonth: number };
 
 export default function NetworkMap({
   scenarioFlights, selected, onSelect, playing, onTogglePlay,
 }: {
-  scenarioFlights: Record<string, number>;   // annual flights under the scenario
-  selected: number;                           // month index, or months.length for the plan
+  scenarioFlights: Record<string, number>;
+  selected: number;
   onSelect: (index: number) => void;
   playing: boolean;
   onTogglePlay: () => void;
 }) {
   const months = map.months as string[];
-  const planIndex = months.length;
-  const isPlan = selected >= planIndex;
+  const isPlan = selected >= months.length;
 
-  const drawn = useMemo<MapRoute[]>(() => routes.map(route => ({
+  const drawn = useMemo(() => routes.map(route => ({
     route,
+    geometry: geometryFor(route),
     flightsPerMonth: isPlan
       ? scenarioFlights[route.Route] / 12
       : (MONTHLY[route.Route]?.[selected] ?? 0),
-  })), [selected, isPlan, scenarioFlights]);
+  })).filter(r => r.geometry && r.flightsPerMonth > 0), [selected, isPlan, scenarioFlights]);
 
   const total = drawn.reduce((a, r) => a + r.flightsPerMonth, 0);
+  const busiest = Math.max(...drawn.map(r => r.flightsPerMonth), 1);
   const totals = map.monthlyTotals as number[];
   const peakIndex = totals.indexOf(Math.max(...totals));
-  const peak = { total: totals[peakIndex], month: months[peakIndex] };
-  const busiest = Math.max(...drawn.map(r => r.flightsPerMonth), 1);
 
   return <div className="mapBlock">
     <div className="mapFrame">
       <svg viewBox={map.viewBox} className="mapSvg" role="img"
-           aria-label={`NorthByte network, ${isPlan ? 'recommended plan' : months[selected]}: ${Math.round(total)} flights in the month`}>
-        {(map.land as string[]).map((d, i) => <path key={i} d={d} className="mapLand" />)}
+           aria-label={`NorthByte network, ${isPlan ? 'recommended plan' : monthLabel(months[selected])}: ${Math.round(total)} flights in the month`}>
+        {(map.neighbours as string[]).map((d, i) => <path key={`n${i}`} d={d} className="mapNeighbour" />)}
+        {(map.land as string[]).map((d, i) => <path key={`l${i}`} d={d} className="mapLand" />)}
+        {(map.lakes as string[]).map((d, i) => <path key={`w${i}`} d={d} className="mapWater" />)}
 
-        {drawn.map(({ route, flightsPerMonth }) => {
-          const from = AIRPORTS[route.Dep], to = AIRPORTS[route.Arr];
-          if (!from || !to || flightsPerMonth <= 0) return null;
-          const c = arc(from, to);
-          return <path key={route.Route}
-                       d={`M${from.x} ${from.y}Q${c.cx} ${c.cy} ${to.x} ${to.y}`}
-                       fill="none" stroke={COHORT_COLOUR[route.Cohort]}
-                       strokeWidth={0.6 + (flightsPerMonth / busiest) * 2.6}
-                       strokeOpacity={0.28} />;
-        })}
+        {drawn.map(({ route, geometry, flightsPerMonth }) => (
+          <path key={route.Route}
+                d={`M${geometry!.x1} ${geometry!.y1}Q${geometry!.cx} ${geometry!.cy} ${geometry!.x2} ${geometry!.y2}`}
+                fill="none" stroke={COHORT_COLOUR[route.Cohort]}
+                strokeWidth={0.5 + (flightsPerMonth / busiest) * 2.2}
+                strokeOpacity={0.22} />
+        ))}
 
         <Traffic drawn={drawn} busiest={busiest} />
 
@@ -98,11 +94,11 @@ export default function NetworkMap({
         <b>{Math.round(total).toLocaleString('en-US')}</b>
         <span>flights in the month</span>
         {/* Against the busiest month flown, so the size of the cut is legible
-            without having to click back and forth. */}
+            without clicking back and forth. */}
         <span className="mapDelta">
-          {peak.total === 0 ? null
-            : Math.abs(total - peak.total) < 1 ? `the peak, ${monthLabel(peak.month)}`
-            : `${total < peak.total ? '−' : '+'}${Math.abs(Math.round((total / peak.total - 1) * 100))}% vs ${monthLabel(peak.month)}`}
+          {Math.abs(total - totals[peakIndex]) < 1
+            ? `the peak, ${monthLabel(months[peakIndex])}`
+            : `${total < totals[peakIndex] ? '−' : '+'}${Math.abs(Math.round((total / totals[peakIndex] - 1) * 100))}% vs ${monthLabel(months[peakIndex])}`}
         </span>
       </div>
     </div>
@@ -115,41 +111,66 @@ export default function NetworkMap({
       <i className="chip restore" /> Restore
       <i className="chip decide" /> Decide
       <i className="chip protect" /> Protect
-      <span className="legendNote">Line weight and aircraft shown follow flights per month. Sep 2024 – Aug 2026 is flown history; the plan is a scenario.</span>
+      <span className="legendNote">Aircraft shown and line weight follow flights per month. Sep 2024 – Aug 2026 is flown history; the plan is a scenario.</span>
     </p>
   </div>;
 }
 
-/** The aircraft themselves: one dot per block of flights, drifting along the arc. */
-function Traffic({ drawn, busiest }: { drawn: MapRoute[]; busiest: number }) {
-  const [phase, setPhase] = useState(0);
-  const frame = useRef<number | undefined>(undefined);
+type Drawn = { route: Route; geometry: Geometry | null; flightsPerMonth: number };
+
+/**
+ * The aircraft. Positions are written straight to each node's transform in the
+ * animation frame rather than through React: a hundred-odd glyphs at sixty
+ * frames a second is not a state update.
+ */
+function Traffic({ drawn, busiest }: { drawn: Drawn[]; busiest: number }) {
+  const group = useRef<SVGGElement>(null);
+
+  const fleet = useMemo(() => drawn.flatMap(({ route, geometry, flightsPerMonth }) => {
+    const count = Math.min(MAX_PLANES_PER_ROUTE,
+                           Math.max(1, Math.round(flightsPerMonth / (busiest / MAX_PLANES_PER_ROUTE))));
+    return Array.from({ length: count }, (_, i) => ({
+      id: `${route.Route}-${i}`,
+      colour: COHORT_COLOUR[route.Cohort],
+      geometry: geometry!,
+      offset: i / count,
+      // A little variation per route stops the whole network pulsing in step.
+      speed: 0.85 + ((route.Route.charCodeAt(0) + route.Route.charCodeAt(4)) % 7) * 0.05,
+    }));
+  }), [drawn, busiest]);
 
   useEffect(() => {
+    const node = group.current;
+    if (!node) return;
+    const planes = Array.from(node.children) as SVGGElement[];
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (still) return;                       // a static frame says the same thing
-    let start: number | undefined;
-    const step = (time: number) => {
-      start ??= time;
-      setPhase(((time - start) / 26000) % 1);  // one slow pass, no easing
-      frame.current = requestAnimationFrame(step);
-    };
-    frame.current = requestAnimationFrame(step);
-    return () => { if (frame.current) cancelAnimationFrame(frame.current); };
-  }, []);
 
-  return <g>{drawn.flatMap(({ route, flightsPerMonth }) => {
-    const from = AIRPORTS[route.Dep], to = AIRPORTS[route.Arr];
-    if (!from || !to || flightsPerMonth <= 0) return [];
-    const count = Math.min(8, Math.max(1, Math.round(flightsPerMonth / (busiest / 8))));
-    const c = arc(from, to);
-    return Array.from({ length: count }, (_, i) => {
-      const t = (phase + i / count) % 1;
-      const { x, y } = pointOn(from, c, to, t);
-      return <circle key={`${route.Route}-${i}`} cx={x} cy={y} r={2.2}
-                     fill={COHORT_COLOUR[route.Cohort]} fillOpacity={0.9} />;
-    });
-  })}</g>;
+    const place = (time: number) => {
+      planes.forEach((plane, index) => {
+        const { geometry, offset, speed } = fleet[index];
+        const t = still ? offset : (offset + (time / LAP_MS) * speed) % 1;
+        const u = 1 - t;
+        const x = u * u * geometry.x1 + 2 * u * t * geometry.cx + t * t * geometry.x2;
+        const y = u * u * geometry.y1 + 2 * u * t * geometry.cy + t * t * geometry.y2;
+        const dx = 2 * u * (geometry.cx - geometry.x1) + 2 * t * (geometry.x2 - geometry.cx);
+        const dy = 2 * u * (geometry.cy - geometry.y1) + 2 * t * (geometry.y2 - geometry.cy);
+        plane.setAttribute('transform',
+          `translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${(Math.atan2(dy, dx) * 180 / Math.PI).toFixed(1)}) scale(0.6)`);
+      });
+    };
+
+    if (still) { place(0); return; }
+    let frame = 0;
+    const tick = (time: number) => { place(time); frame = requestAnimationFrame(tick); };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [fleet]);
+
+  return <g ref={group} className="fleet">
+    {fleet.map(plane => (
+      <g key={plane.id}><path d={PLANE_PATH} fill={plane.colour} /></g>
+    ))}
+  </g>;
 }
 
 function Timeline({ months, selected, onSelect, playing, onTogglePlay, planTotal }: {
@@ -162,6 +183,7 @@ function Timeline({ months, selected, onSelect, playing, onTogglePlay, planTotal
 
   return <div className="timeline">
     <button className="pill playToggle" onClick={onTogglePlay} aria-pressed={playing}>
+      {playing ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />}
       {playing ? 'Pause' : 'Play'}
     </button>
     <div className="track" role="group" aria-label="Flights by month">
