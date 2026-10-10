@@ -34,7 +34,18 @@ two neighbouring reds alone.
 
 ## Two views
 
-**Scenario** carries the levers, the map and the scoreboard: the live demo.
+**Scenario** carries the levers, the map and the scoreboard: the live demo. The
+levers are grouped as the six pillars of the recommendation —
+
+1. cut back the doubled routes · 2. raise fares on the stable ones ·
+3. fewer flights on the new routes · 4. hand back the idle gates ·
+5–6. seasonality
+
+— with the first four driving the model and the last two carried as evidence:
+the network already flies 28% fewer flights in Dec–Feb than Jun–Aug, while St
+John's holds at 87% of its summer schedule through the winter. A month-by-month
+trim is not modelled, because the plan works on annual frequency, and the panel
+says so rather than implying it is in the numbers.
 **Data and assumptions** carries the waterfall, the readouts, the cohort and
 route tables and the assumption list: the evidence a judge asks for.
 
@@ -55,8 +66,11 @@ The forecast is the model on a calendar, not a separate assumption: each month
 asks `scenario()` for the tranches applied by then, capped by the tranche the
 levers allow, so moving a lever moves the whole projection.
 
-Provinces are shaded by departures on a sand-to-earth ramp, line weight and
-aircraft follow flights per month. Wheel or the buttons to zoom, drag to pan; symbols scale against the
+One aircraft stands for a fixed number of flights a month — about 14 — measured
+against the busiest route-month ever flown rather than against whatever is on
+screen, so cutting flights visibly thins the traffic: 105 aircraft today, 65
+under the plan. Every airport is named. The map itself is drawn plainly from the
+Natural Earth geometry, with no data shading over it. Pinch or the buttons to zoom, drag to pan; symbols scale against the
 frame, so aircraft, dots, labels and line weights hold their size on screen at
 any zoom.
 

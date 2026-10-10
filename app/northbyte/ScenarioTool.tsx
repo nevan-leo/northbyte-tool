@@ -174,60 +174,99 @@ export default function ScenarioTool() {
 
     {tab === 'scenario' && <div className="scenarioGrid">
       <aside className="levers">
-        <div className="sectionhead"><span>Levers</span><small>Assumptions</small></div>
+        <div className="sectionhead"><span>The plan</span><small>Six pillars</small></div>
 
-        <label>Mode
+        <label className="pillarMode">Mode
           <select value={levers.mode} onChange={e => set('mode', e.target.value as Levers['mode'])}>
             <option value="preset">Preset plan</option>
             <option value="manual">Manual</option>
           </select>
         </label>
 
-        {levers.mode === 'preset' ? <>
-          <Slider label="Phase toward plan" value={levers.phase * 100} min={0} max={100} suffix="%"
-                  onChange={v => set('phase', v / 100)} />
-          <Slider label="Tranches applied" value={levers.tranche} min={0} max={4} suffix=""
-                  onChange={v => set('tranche', v)} />
-        </> : COHORTS.map(cohort => (
+        {levers.mode === 'manual' ? COHORTS.map(cohort => (
           <Slider key={cohort} label={`${cohort} flights`} value={levers.multipliers[cohort] * 100}
                   min={0} max={150} suffix="% of today"
                   onChange={v => set('multipliers', { ...levers.multipliers, [cohort]: v / 100 })} />
-        ))}
+        )) : <>
+          <section className="pillar">
+            <h3><span>1</span>Cut back the doubled routes</h3>
+            <p>Montréal–Vancouver, Toronto–Ottawa, Toronto–Montréal, Halifax–Toronto and
+               Halifax–Montréal, rolled back toward the frequency they flew before the expansion.</p>
+            <Slider label="Rollback tranches applied" value={Math.min(levers.tranche, 3)} min={0} max={3} suffix=""
+                    onChange={v => set('tranche', levers.tranche >= 4 && v === 3 ? 4 : v)} />
+            <Slider label="How far toward the target frequency" value={levers.phase * 100} min={0} max={100} suffix="%"
+                    onChange={v => set('phase', v / 100)} />
+            <div className="leverGroup">
+              <span className="leverLabel">Revenue lost per flight cut (ρ)</span>
+              <div className="filterrow">
+                {Object.entries(presets.rhoDown).map(([name, value]) => (
+                  <button key={name} className={`pill ${levers.rhoDown === value ? 'active' : ''}`}
+                          onClick={() => set('rhoDown', value as number)}>{name}</button>
+                ))}
+              </div>
+              <Slider label="" value={levers.rhoDown * 100} min={0} max={100} step={0.1} suffix="%"
+                      onChange={v => set('rhoDown', v / 100)} />
+            </div>
+            <Slider label="Crew cost shed on cut flights" value={levers.crewShed * 100} min={0} max={100} suffix="%"
+                    onChange={v => set('crewShed', v / 100)} />
+          </section>
 
-        <div className="leverGroup">
-          <span className="leverLabel">Revenue response when flights are cut (ρ)</span>
-          <div className="filterrow">
-            {Object.entries(presets.rhoDown).map(([name, value]) => (
-              <button key={name} className={`pill ${levers.rhoDown === value ? 'active' : ''}`}
-                      onClick={() => set('rhoDown', value as number)}>{name}</button>
-            ))}
+          <section className="pillar">
+            <h3><span>2</span>Raise fares on the stable routes</h3>
+            <p>The 38 Protect routes only. Cost pass-through is {presets.costPassThroughFarePct}%.</p>
+            <Slider label="Fare change" value={levers.farePct} min={0} max={15} suffix="%" step={0.05}
+                    onChange={v => set('farePct', v)} />
+            <Slider label="Demand elasticity (assumed)" value={levers.elasticity * 100} min={-150} max={0} suffix=""
+                    onChange={v => set('elasticity', v / 100)} format={v => (v / 100).toFixed(2)} />
+          </section>
+
+          <section className="pillar">
+            <h3><span>3</span>Fewer flights on the new routes</h3>
+            <p>Toronto–London and Halifax–Moncton re-cut to about ten tickets a flight;
+               Ottawa–Montréal exited.</p>
+            <label className="toggle">
+              <input type="checkbox" checked={levers.tranche >= 4} disabled={levers.tranche < 3}
+                     onChange={e => set('tranche', e.target.checked ? 4 : 3)} />
+              <span>Apply the Decide changes{levers.tranche < 3 ? ' — follows the third rollback tranche' : ''}</span>
+            </label>
+          </section>
+
+          <section className="pillar">
+            <h3><span>4</span>Hand back the idle gates</h3>
+            <p>Halifax A3 and Ottawa A2 carry no route. Their leases run to the calendar year,
+               not the fiscal one.</p>
+            <label className="toggle">
+              <input type="checkbox" checked={levers.releaseIdleGates}
+                     onChange={e => set('releaseIdleGates', e.target.checked)} />
+              <span>Release them (−{money(constants.idleGatesReleasable)} a year)</span>
+            </label>
+            <label className="toggle">
+              <input type="checkbox" checked={levers.gates === 'forecast'}
+                     onChange={e => set('gates', e.target.checked ? 'forecast' : 'actual')} />
+              <span>Price gates at the 2026-27 forecast</span>
+            </label>
+          </section>
+
+          <section className="pillar quiet">
+            <h3><span>5–6</span>Seasonality</h3>
+            <p>
+              The network already flies 28% fewer flights in Dec–Feb than Jun–Aug, but
+              St John&apos;s holds at 87% of its summer schedule through the winter. Trimming
+              it is the right call and is <b>not</b> modelled here: the plan works on annual
+              frequency, so a month-by-month cut would need a model this one does not have.
+            </p>
+            <label className="toggle">
+              <input type="checkbox" checked={levers.seasonal}
+                     onChange={e => set('seasonal', e.target.checked)} />
+              <span>Hold the Restore targets to the seasonal baseline (×{constants.seasonalFactor})</span>
+            </label>
+          </section>
+
+          <div className="leverGroup">
+            <Slider label="Sustainable target margin" value={levers.targetMarginPct} min={0} max={10} suffix="%" step={0.1}
+                    onChange={v => set('targetMarginPct', v)} />
           </div>
-          <Slider label="" value={levers.rhoDown * 100} min={0} max={100} step={0.1} suffix="%"
-                  onChange={v => set('rhoDown', v / 100)} />
-        </div>
-
-        <Slider label="Revenue response when flights are added" value={levers.rhoUp * 100} min={0} max={100}
-                step={0.1} suffix="%" onChange={v => set('rhoUp', v / 100)} />
-        <Slider label="Crew shed on cut flights" value={levers.crewShed * 100} min={0} max={100} suffix="%"
-                onChange={v => set('crewShed', v / 100)} />
-        <Slider label="Protect fare change" value={levers.farePct} min={0} max={15} suffix="%" step={0.05}
-                onChange={v => set('farePct', v)} />
-        <Slider label="Fare elasticity (assumed)" value={levers.elasticity * 100} min={-150} max={0} suffix=""
-                onChange={v => set('elasticity', v / 100)} format={v => (v / 100).toFixed(2)} />
-        <Slider label="Sustainable target margin" value={levers.targetMarginPct} min={0} max={10} suffix="%" step={0.1}
-                onChange={v => set('targetMarginPct', v)} />
-
-        <div className="toggles">
-          <label className="toggle"><input type="checkbox" checked={levers.gates === 'forecast'}
-                 onChange={e => set('gates', e.target.checked ? 'forecast' : 'actual')} />
-            <span>Use 2026-27 gate forecast</span></label>
-          <label className="toggle"><input type="checkbox" checked={levers.releaseIdleGates}
-                 onChange={e => set('releaseIdleGates', e.target.checked)} />
-            <span>Release idle gates (−{money(constants.idleGatesReleasable)})</span></label>
-          <label className="toggle"><input type="checkbox" checked={levers.seasonal}
-                 onChange={e => set('seasonal', e.target.checked)} />
-            <span>Seasonal baseline on Restore (×{constants.seasonalFactor})</span></label>
-        </div>
+        </>}
       </aside>
     <div className="panel mapPanel">
       <div className="sectionhead">

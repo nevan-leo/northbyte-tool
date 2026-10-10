@@ -15,10 +15,10 @@ import { FLIGHT_PATH } from './Brand';
 // fetched at runtime.
 
 const AIRPORTS = map.airports as Record<string, { x: number; y: number; city: string }>;
-const REGION_OF = map.airportRegion as Record<string, string>;
 const LAND = map.land as { d: string; code: string }[];
 const MONTHLY = map.monthlyFlights as Record<string, number[]>;
 const HUBS = ['YVR', 'YYC', 'YEG', 'YWG', 'YYZ', 'YOW', 'YUL', 'YHZ', 'YYT'];
+const LABEL_LEFT = ['YOW', 'YXU', 'YQM', 'YHZ', 'YYZ', 'YVR', 'YXX'];
 const COHORT_COLOUR: Record<Route['Cohort'], string> = {
   Restore: 'var(--clay)', Decide: 'var(--tan)', Protect: 'var(--ink)',
 };
@@ -37,6 +37,13 @@ const PLANE_OPACITY: Record<Route['Cohort'], number> = {
   Restore: 1, Decide: 1, Protect: 0.5,
 };
 const MAX_PLANES_PER_ROUTE = 7;
+// The reference is the busiest route-month ever flown, NOT the busiest route in
+// whatever is on screen. Normalising against the current state kept the fleet
+// the same size however many flights were cut, which is the opposite of the
+// point: one aircraft now stands for a fixed number of flights a month.
+const BUSIEST_EVER = Math.max(
+  ...Object.values(map.monthlyFlights as Record<string, number[]>).flat(), 1);
+const FLIGHTS_PER_PLANE = BUSIEST_EVER / MAX_PLANES_PER_ROUTE;
 const LAP_MS = 3400;           // one end-to-end crossing
 const PLANE_SCALE = 0.62;      // the 24-unit glyph down to map scale
 
@@ -121,9 +128,12 @@ export default function NetworkMap({
     // Registered here rather than as a React prop so it can be non-passive and
     // stop the page scrolling under the cursor.
     const onWheel = (event: WheelEvent) => {
+      // A bare wheel scrolls the page. Zooming on it hijacked the scroll
+      // whenever the pointer crossed the map, which also left the frame zoomed
+      // in without anyone asking. Pinch on a trackpad arrives as ctrl+wheel, so
+      // this still reads as the ordinary gesture.
+      if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
-      // deltaMode 1 is lines rather than pixels; both are clamped so a flick of
-      // a trackpad and a notch of a mouse wheel feel about the same.
       const pixels = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
       const stepSize = Math.min(Math.abs(pixels), 50) / 50;
       zoomAt(Math.pow(1.07, pixels < 0 ? stepSize : -stepSize), event.clientX, event.clientY);
@@ -159,19 +169,8 @@ export default function NetworkMap({
       : (MONTHLY[route.Route]?.[nowIndex] ?? 0),
   })).filter(r => r.geometry && r.flightsPerMonth > 0), [isForecast, step, nowIndex]);
 
-  // Departures by province, which is what the shading under the network shows.
-  const byProvince = useMemo(() => {
-    const totals: Record<string, number> = {};
-    drawn.forEach(({ route, flightsPerMonth }) => {
-      const code = REGION_OF[route.Dep];
-      if (code) totals[code] = (totals[code] ?? 0) + flightsPerMonth;
-    });
-    return totals;
-  }, [drawn]);
-  const heaviest = Math.max(...Object.values(byProvince), 1);
 
   const total = drawn.reduce((a, r) => a + r.flightsPerMonth, 0);
-  const busiest = Math.max(...drawn.map(r => r.flightsPerMonth), 1);
   const totals = map.monthlyTotals as number[];
   const now = totals[nowIndex];
   // Sep 2024 - Feb 2025 is the pre-expansion window the rollback aims at, and is
@@ -191,15 +190,12 @@ export default function NetworkMap({
            role="img"
            aria-label={`NorthByte network, ${isForecast ? `forecast ${step.label}` : `last month flown, ${monthLabel(months[nowIndex])}`}: ${Math.round(total)} flights in the month`}>
         {(map.neighbours as string[]).map((d, i) => <path key={`n${i}`} d={d} className="mapNeighbour" />)}
-        {LAND.map((shape, i) => (
-          <path key={`l${i}`} d={shape.d} className="mapLand"
-                style={{ fill: shade(byProvince[shape.code] ?? 0, heaviest) }} />
-        ))}
+        {LAND.map((shape, i) => <path key={`l${i}`} d={shape.d} className="mapLand" />)}
         {(map.lakes as string[]).map((d, i) => <path key={`w${i}`} d={d} className="mapWater" />)}
 
         {drawn.map(({ route, geometry, flightsPerMonth }) => {
           const d = `M${geometry!.x1} ${geometry!.y1}Q${geometry!.cx} ${geometry!.cy} ${geometry!.x2} ${geometry!.y2}`;
-          const width = (0.5 + (flightsPerMonth / busiest) * 2.2) * k * COHORT_WEIGHT[route.Cohort];
+          const width = (0.5 + (flightsPerMonth / BUSIEST_EVER) * 2.2) * k * COHORT_WEIGHT[route.Cohort];
           const dash = COHORT_DASH[route.Cohort];
           return <g key={route.Route}>
             {/* Tan on cream is too quiet on its own, so the Decide routes get a
@@ -212,15 +208,19 @@ export default function NetworkMap({
           </g>;
         })}
 
-        <Traffic drawn={drawn} busiest={busiest} scale={k} />
+        <Traffic drawn={drawn} scale={k} />
 
         {Object.entries(AIRPORTS).map(([code, a]) => (
-          <circle key={code} cx={a.x} cy={a.y} r={(HUBS.includes(code) ? 4 : 2.5) * k} className="mapDot" />
+          <circle key={code} cx={a.x} cy={a.y} r={(HUBS.includes(code) ? 4 : 3) * k} className="mapDot" />
         ))}
-        {HUBS.filter(code => AIRPORTS[code]).map(code => (
-          <text key={code} x={AIRPORTS[code].x + 9 * k} y={AIRPORTS[code].y + 4 * k}
-                fontSize={13 * k} strokeWidth={3 * k} className="mapLabel">{code}</text>
-        ))}
+        {/* Every airport is named. Labels sit to the left for the eastern cluster
+            so they do not pile up on the routes leaving it. */}
+        {Object.entries(AIRPORTS).map(([code, a]) => {
+          const flip = LABEL_LEFT.includes(code);
+          return <text key={code} x={a.x + (flip ? -8 : 8) * k} y={a.y + 4 * k}
+                       textAnchor={flip ? 'end' : 'start'}
+                       fontSize={13 * k} strokeWidth={3.5 * k} className="mapLabel">{code}</text>;
+        })}
       </svg>
 
       <div className="mapZoom">
@@ -228,6 +228,7 @@ export default function NetworkMap({
         <button className="pill" onClick={() => zoomAt(1 / 1.35)} aria-label="Zoom out"><ZoomOut size={14} /></button>
         <button className="pill" onClick={() => setBox(BASE)} aria-label="Reset the view"
                 disabled={!zoomed}><Maximize2 size={14} /></button>
+        <span className="zoomHint">drag to pan<br />pinch to zoom</span>
       </div>
 
       <div className="mapReadout">
@@ -251,15 +252,9 @@ export default function NetworkMap({
       <i className="rule restore" /> Restore <small>10 routes, the loss</small>
       <i className="rule decide" /> Decide <small>6, re-cut or exited</small>
       <i className="rule protect" /> Protect <small>38, held flat</small>
-      <span className="ramp" aria-hidden="true">
-        <i style={{ background: shade(0, 1) }} />
-        <i style={{ background: shade(0.5, 1) }} />
-        <i style={{ background: shade(1, 1) }} />
-      </span>
-      <span className="rampLabel">Departures by province</span>
       <span className="legendNote">
-        Aircraft and line weight follow flights per month; provinces are shaded by
-        departures. The first column is the last month in the data, Aug 2026, when
+        One aircraft stands for about {Math.round(FLIGHTS_PER_PLANE)} flights a month, so the
+        traffic thins as flights come out. The first column is the last month in the data, Aug 2026, when
         the fiscal year closed. The twelve months ahead are a forecast of the plan
         phasing in, not a prediction of demand.
       </span>
@@ -274,12 +269,11 @@ type Drawn = { route: Route; geometry: Geometry | null; flightsPerMonth: number 
  * animation frame rather than through React: a hundred-odd glyphs at sixty
  * frames a second is not a state update.
  */
-function Traffic({ drawn, busiest, scale }: { drawn: Drawn[]; busiest: number; scale: number }) {
+function Traffic({ drawn, scale }: { drawn: Drawn[]; scale: number }) {
   const group = useRef<SVGGElement>(null);
 
   const fleet = useMemo(() => drawn.flatMap(({ route, geometry, flightsPerMonth }) => {
-    const count = Math.min(MAX_PLANES_PER_ROUTE,
-                           Math.max(1, Math.round(flightsPerMonth / (busiest / MAX_PLANES_PER_ROUTE))));
+    const count = Math.min(MAX_PLANES_PER_ROUTE, Math.round(flightsPerMonth / FLIGHTS_PER_PLANE));
     return Array.from({ length: count }, (_, i) => ({
       id: `${route.Route}-${i}`,
       colour: COHORT_COLOUR[route.Cohort],
@@ -290,7 +284,7 @@ function Traffic({ drawn, busiest, scale }: { drawn: Drawn[]; busiest: number; s
       // A little variation per route stops the whole network pulsing in step.
       speed: 0.85 + ((route.Route.charCodeAt(0) + route.Route.charCodeAt(4)) % 7) * 0.05,
     }));
-  }), [drawn, busiest]);
+  }), [drawn]);
 
   useEffect(() => {
     const node = group.current;
@@ -367,13 +361,6 @@ function Timeline({ forecast, now, selected, onSelect, playing, onTogglePlay }: 
       <span>Last flown</span><span>+3 months</span><span>+6</span><span>+9</span><span>+12</span>
     </div>
   </div>;
-}
-
-/** Province fill: cream to tan by departures, so the map carries volume too. */
-function shade(value: number, heaviest: number) {
-  const share = heaviest > 0 ? value / heaviest : 0;
-  const mix = (from: number, to: number) => Math.round(from + (to - from) * share);
-  return `rgb(${mix(232, 199)}, ${mix(216, 183)}, ${mix(196, 163)})`;   // #e8d8c4 -> #c7b7a3
 }
 
 function monthLabel(month: string) {
