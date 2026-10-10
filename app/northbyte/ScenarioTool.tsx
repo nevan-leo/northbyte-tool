@@ -25,7 +25,10 @@ const PRESETS: Record<string, Levers> = {
 export default function ScenarioTool() {
   const [levers, setLevers] = useState<Levers>(PRESETS['Full plan']);
   const [cohortFilter, setCohortFilter] = useState<'All' | Cohort>('All');
-  const [sortKey, setSortKey] = useState<'contribution' | 'delta' | 'flights'>('contribution');
+  type SortKey = 'contribution' | 'delta' | 'flights';
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'contribution', dir: 1 });
+  const toggleSort = (key: SortKey) =>
+    setSort(current => ({ key, dir: current.key === key ? (current.dir === 1 ? -1 : 1) : 1 }));
 
   const set = <K extends keyof Levers>(key: K, value: Levers[K]) =>
     setLevers(current => ({ ...current, [key]: value }));
@@ -59,11 +62,20 @@ export default function ScenarioTool() {
       .map((r, i) => ({ ...r, todayRow: today.byRoute[i] }))
       .filter(r => cohortFilter === 'All' || r.route.Cohort === cohortFilter);
     const key = (r: typeof rows[number]) =>
-      sortKey === 'contribution' ? r.contribution
-        : sortKey === 'flights' ? r.flights
+      sort.key === 'contribution' ? r.contribution
+        : sort.key === 'flights' ? r.flights
         : r.contribution - r.todayRow.contribution;
-    return rows.sort((a, b) => key(a) - key(b));
-  }, [result, today, cohortFilter, sortKey]);
+    return rows.sort((a, b) => (key(a) - key(b)) * sort.dir);
+  }, [result, today, cohortFilter, sort]);
+
+  const sortProps = (key: SortKey) => ({
+    className: 'sortable',
+    onClick: () => toggleSort(key),
+    'aria-sort': (sort.key === key
+      ? (sort.dir === 1 ? 'ascending' : 'descending')
+      : undefined) as 'ascending' | 'descending' | undefined,
+  });
+  const arrow = (key: SortKey) => (sort.key === key ? (sort.dir === 1 ? ' ↑' : ' ↓') : '');
 
   const worst = useMemo(
     () => [...result.byRoute].sort((a, b) => a.contribution - b.contribution).slice(0, 10),
@@ -75,7 +87,7 @@ export default function ScenarioTool() {
   const activePreset = Object.entries(PRESETS)
     .find(([, p]) => JSON.stringify(p) === JSON.stringify(levers))?.[0];
 
-  return <section className="nb">
+  return <section className="nb shell">
     <section className="hero">
       <div>
         <p className="eyebrow">NORTHBYTE AIRLINES · FY25-26 PROFIT DIAGNOSIS</p>
@@ -112,7 +124,7 @@ export default function ScenarioTool() {
 
     <div className="nbGrid">
       <aside className="levers">
-        <div className="sectionhead"><span>Levers</span><i>LIVE</i></div>
+        <div className="sectionhead"><span>Levers</span><small>Assumptions</small></div>
 
         <label>Mode
           <select value={levers.mode} onChange={e => set('mode', e.target.value as Levers['mode'])}>
@@ -140,12 +152,12 @@ export default function ScenarioTool() {
                       onClick={() => set('rhoDown', value as number)}>{name}</button>
             ))}
           </div>
-          <Slider label="" value={levers.rhoDown * 100} min={0} max={100} suffix="%"
+          <Slider label="" value={levers.rhoDown * 100} min={0} max={100} step={0.1} suffix="%"
                   onChange={v => set('rhoDown', v / 100)} />
         </div>
 
-        <Slider label="Revenue response when flights are added" value={levers.rhoUp * 1000} min={0} max={1000}
-                suffix="‰" onChange={v => set('rhoUp', v / 1000)} />
+        <Slider label="Revenue response when flights are added" value={levers.rhoUp * 100} min={0} max={100}
+                step={0.1} suffix="%" onChange={v => set('rhoUp', v / 100)} />
         <Slider label="Crew shed on cut flights" value={levers.crewShed * 100} min={0} max={100} suffix="%"
                 onChange={v => set('crewShed', v / 100)} />
         <Slider label="Protect fare change" value={levers.farePct} min={0} max={15} suffix="%" step={0.05}
@@ -209,6 +221,7 @@ export default function ScenarioTool() {
 
         <div className="panel">
           <div className="sectionhead"><span>By cohort</span><small>TODAY → SCENARIO</small></div>
+          <div className="tableWrap">
           <table className="nbTable">
             <thead><tr><th>Cohort</th><th>Routes</th><th>Flights</th><th>Revenue</th><th>Cost</th><th>Contribution</th></tr></thead>
             <tbody>
@@ -227,6 +240,7 @@ export default function ScenarioTool() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
 
         <div className="panel">
@@ -264,10 +278,10 @@ export default function ScenarioTool() {
             <table className="nbTable routeTable">
               <thead><tr>
                 <th>Route</th><th>Cohort</th><th>Tr.</th>
-                <th className="sortable" onClick={() => setSortKey('flights')}>Flights ↕</th>
+                <th {...sortProps('flights')}>Flights{arrow('flights')}</th>
                 <th>Revenue</th><th>Cost</th>
-                <th className="sortable" onClick={() => setSortKey('contribution')}>Contribution ↕</th>
-                <th className="sortable" onClick={() => setSortKey('delta')}>Change ↕</th>
+                <th {...sortProps('contribution')}>Contribution{arrow('contribution')}</th>
+                <th {...sortProps('delta')}>Change{arrow('delta')}</th>
                 <th>Fill</th>
               </tr></thead>
               <tbody>
@@ -304,6 +318,10 @@ export default function ScenarioTool() {
         <li>One ticket is treated as one passenger. Seat counts are absent, so load factor is never shown — fill is tickets per flight against the break-even count.</li>
         <li>These are scenarios, not forecasts, and nothing here establishes causation.</li>
       </ul>
+    </div>
+    <div className="colophon">
+      <span>BOLT UBC First Byte 2026 · NorthByte Airlines · FY25-26 (1 Sep 2025 – 31 Aug 2026)</span>
+      <span>54 routes · 15,729 flights · all amounts in Canadian dollars</span>
     </div>
   </section>;
 }
@@ -354,7 +372,7 @@ function Slider({ label, value, min, max, suffix, step = 1, onChange, format }:
   return <label className="slider">
     {label && <span>{label}<b>{shown}</b></span>}
     <input aria-label={label || 'value'} type="range" min={min} max={max} step={step} value={value}
-           style={{ background: `linear-gradient(90deg,#d8ff5f ${progress}%,#303633 ${progress}%)` }}
+           style={{ background: `linear-gradient(90deg, var(--ink) ${progress}%, var(--line) ${progress}%)` }}
            onChange={e => onChange(Number(e.target.value))} />
   </label>;
 }
