@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import RouteMap, { type RouteRecord } from './RouteMap';
+import ScenarioTool from './northbyte/ScenarioTool';
 import data from './data/routes.json';
 
 // Everything on this page comes from app/data/routes.json, which is written by
@@ -25,7 +26,7 @@ const weights = data.weights as Record<string, number>;
 const hubs = ['All', ...Array.from(new Set(routes.map(r => r.originCode)))];
 
 export default function Home() {
-  const [view, setView] = useState<'lab' | 'network' | 'methodology'>('lab');
+  const [view, setView] = useState<'lab' | 'network' | 'methodology' | 'scenario'>('lab');
   const [selected, setSelected] = useState(0);
   const [hub, setHub] = useState('All');
   const [plane, setPlane] = useState(data.assumptions.baseAircraft);
@@ -50,8 +51,10 @@ export default function Home() {
   return <main>
     <header className="topbar">
       <button className="brand" onClick={() => setView('lab')}><span className="brandmark">N</span><span><b>Northbound</b><small>Network intelligence</small></span></button>
-      <nav>{[['lab','Route lab'],['network','Network'],['methodology','Methodology']].map(([id,label]) => <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id as typeof view)}>{label}</button>)}</nav>
-      <div className="source"><span /> {data.dataset.marketsScreened.toLocaleString()} markets screened · {data.referenceYear}</div>
+      <nav>{[['lab','Route lab'],['network','Network'],['methodology','Methodology'],['scenario','NorthByte scenario']].map(([id,label]) => <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id as typeof view)}>{label}</button>)}</nav>
+      <div className="source"><span /> {view === 'scenario'
+        ? 'NorthByte FY25-26 · 54 routes'
+        : `${data.dataset.marketsScreened.toLocaleString()} markets screened · ${data.referenceYear}`}</div>
     </header>
 
     {view === 'lab' && <>
@@ -73,7 +76,8 @@ export default function Home() {
 
     {view === 'network' && <NetworkView selected={selected} setSelected={setSelected}/>}
     {view === 'methodology' && <Methodology/>}
-    <footer><span>BTS T-100 International Segment · StatCan 23-10-0256 · OurAirports</span><span>{data.dataset.t100Rows.toLocaleString()} segment rows · {data.dataset.odRows.toLocaleString()} O&amp;D rows · generated {data.generatedAt.slice(0, 10)}</span></footer>
+    {view === 'scenario' && <ScenarioTool/>}
+    {view !== 'scenario' && (<footer><span>BTS T-100 International Segment · StatCan 23-10-0256 · OurAirports</span><span>{data.dataset.t100Rows.toLocaleString()} segment rows · {data.dataset.odRows.toLocaleString()} O&amp;D rows · generated {data.generatedAt.slice(0, 10)}</span></footer>)}
   </main>;
 }
 

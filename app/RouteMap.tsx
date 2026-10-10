@@ -35,7 +35,10 @@ export default function RouteMap({ routes, selected, onSelect, networkMode = fal
     let cancelled = false;
     void import('leaflet').then(L => {
       if (cancelled || !container.current) return;
-      const map = L.map(container.current, { zoomControl: true, attributionControl: true, minZoom: 2, maxZoom: 10 }).setView([48, -98], networkMode ? 3 : 4);
+      // Animated transitions fire their end-handler after this component can be
+      // unmounted by a view switch, and Leaflet then reads a torn-down pane. The
+      // map is driven programmatically here, so animation buys nothing.
+      const map = L.map(container.current, { zoomControl: true, attributionControl: true, minZoom: 2, maxZoom: 10, zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false }).setView([48, -98], networkMode ? 3 : 4);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors',
@@ -48,6 +51,9 @@ export default function RouteMap({ routes, selected, onSelect, networkMode = fal
     });
     return () => {
       cancelled = true;
+      // stop() first: removing a map mid-pan leaves Leaflet's zoom-transition
+      // callback to fire against a torn-down pane, which throws on _leaflet_pos.
+      mapRef.current?.stop();
       mapRef.current?.remove();
       mapRef.current = null;
       overlayRef.current = null;
@@ -83,17 +89,20 @@ export default function RouteMap({ routes, selected, onSelect, networkMode = fal
     });
 
     if (networkMode) {
-      map.setView([48, -98], 3, { animate: true });
+      map.setView([48, -98], 3, { animate: false });
     } else {
       const route = routes[selected];
-      map.fitBounds([[route.origin[1], route.origin[0]], [route.destination[1], route.destination[0]]], { padding: [70, 70], maxZoom: 5, animate: true });
+      map.fitBounds([[route.origin[1], route.origin[0]], [route.destination[1], route.destination[0]]], { padding: [70, 70], maxZoom: 5, animate: false });
     }
   }
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    void import('leaflet').then(L => draw(L, map));
+    let cancelled = false;
+    // The dynamic import can resolve after this view has been switched away.
+    void import('leaflet').then(L => { if (!cancelled && mapRef.current) draw(L, map); });
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, networkMode, routes]);
 

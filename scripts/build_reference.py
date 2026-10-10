@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Build the airport reference table and the city->airport bridge from OurAirports.
 
-Two jobs:
+Three jobs:
   1. data/staged/airports.csv   - the airports inside the study scope
   2. data/staged/city_airport.csv - "City, Region" -> IATA, needed because
      Statistics Canada publishes O&D by CITY while BTS publishes by AIRPORT.
+  3. data/staged/airport_geo.csv - every scheduled airport in Canada and the
+     U.S., regardless of scope. The operating-cost benchmark comes from an
+     airline flying eastern Canadian routes, so stage lengths have to be
+     computable outside the study area.
 
 Scope comes from scripts/scope.json, which is the single place the study area is
 defined.
@@ -52,13 +56,20 @@ HUBS = set(SCOPE["canada"]["hubs"])
 # scheduled service can represent one.
 RANK = {"large_airport": 0, "medium_airport": 1, "small_airport": 2}
 
-airports, by_city = {}, {}
+airports, by_city, geo = {}, {}, {}
 with SOURCE.open(newline="", encoding="utf-8") as fh:
     for row in csv.DictReader(fh):
         iata, region = row["iata_code"].strip(), row["iso_region"]
-        if len(iata) != 3 or region not in IN_SCOPE:
+        if len(iata) != 3 or row["scheduled_service"] != "yes" or row["type"] not in RANK:
             continue
-        if row["scheduled_service"] != "yes" or row["type"] not in RANK:
+        if region[:2] in ("CA", "US") and region in REGION_NAMES:
+            geo.setdefault(iata, {
+                "iata": iata, "city": row["municipality"].strip() or row["name"],
+                "country": region[:2],
+                "latitude": round(float(row["latitude_deg"]), 5),
+                "longitude": round(float(row["longitude_deg"]), 5),
+            })
+        if region not in IN_SCOPE:
             continue
         municipality = row["municipality"].strip()
         if not municipality:
@@ -94,6 +105,12 @@ with (OUT / "city_airport.csv").open("w", newline="") as fh:
     for key, record in sorted(by_city.items()):
         writer.writerow([key, record["iata"]])
 
+with (OUT / "airport_geo.csv").open("w", newline="") as fh:
+    writer = csv.DictWriter(fh, fieldnames=["iata", "city", "country", "latitude", "longitude"])
+    writer.writeheader()
+    for record in sorted(geo.values(), key=lambda r: r["iata"]):
+        writer.writerow(record)
+
 missing = sorted(HUBS - set(airports))
 if missing:
     raise SystemExit(f"Hub(s) not found in scope: {', '.join(missing)}")
@@ -102,3 +119,4 @@ print(f"airports.csv:     {len(airports)} airports in scope "
       f"({sum(1 for a in airports.values() if a['country'] == 'CA')} CA / "
       f"{sum(1 for a in airports.values() if a['country'] == 'US')} US)")
 print(f"city_airport.csv: {len(by_city)} city keys")
+print(f"airport_geo.csv:  {len(geo)} scheduled airports across CA and US")

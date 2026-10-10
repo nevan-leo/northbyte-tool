@@ -101,4 +101,62 @@ CREATE TABLE score_weights (
     weight    numeric(4,3) NOT NULL CHECK (weight BETWEEN 0 AND 1)
 );
 
+-- ------------------------------------------- operating benchmark (FirstByte) --
+
+-- Every scheduled airport in Canada and the U.S., used only to measure stage
+-- length. Kept apart from nb.airports so that widening the geographic reach of
+-- the cost benchmark can never widen the study area by accident.
+CREATE TABLE airport_geo (
+    iata      char(3) PRIMARY KEY,
+    city      text    NOT NULL,
+    country   char(2) NOT NULL,
+    latitude  numeric(8,5) NOT NULL,
+    longitude numeric(8,5) NOT NULL
+);
+
+-- An operating airline's own books: two fiscal years (2024-09-01 to 2026-08-31)
+-- of transactions, per-flight costs and gate leases, in Canadian dollars. The
+-- route model has no cost data of its own, so these supply the unit economics.
+CREATE TABLE fb_transaction (
+    transaction_id text PRIMARY KEY,
+    booking_id     text NOT NULL,
+    txn_ts         timestamp,          -- null where the source date is ambiguous
+    date_ambiguous boolean NOT NULL DEFAULT false,
+    origin         char(3) NOT NULL,
+    destination    char(3) NOT NULL,
+    txn_type       text NOT NULL,
+    tier           text NOT NULL,
+    channel        text NOT NULL,
+    amount         numeric(10,2) NOT NULL,
+    CONSTRAINT fb_txn_not_self CHECK (origin <> destination)
+);
+
+CREATE INDEX fb_txn_route_idx ON fb_transaction (origin, destination);
+CREATE INDEX fb_txn_type_idx  ON fb_transaction (txn_type);
+
+CREATE TABLE fb_cost (
+    cost_id     text PRIMARY KEY,
+    cost_ts     timestamp NOT NULL,    -- identifies the flight, not the booking
+    cost_type   text    NOT NULL,      -- Fuel | Crew | Maintenance | Food
+    origin      char(3) NOT NULL,
+    destination char(3) NOT NULL,
+    from_city   text,
+    to_city     text,
+    amount      numeric(10,2) NOT NULL CHECK (amount >= 0)
+);
+
+CREATE INDEX fb_cost_flight_idx ON fb_cost (origin, destination, cost_ts);
+
+-- One row per (gate, route) pair. annual_gate_cost is the lease for the WHOLE
+-- gate repeated on every row, so it must be de-duplicated before being summed
+-- and then shared across the routes that depart from it.
+CREATE TABLE fb_gate (
+    city             text    NOT NULL,
+    gate_number      text    NOT NULL,
+    origin           char(3),          -- null when the gate has no route assigned
+    destination      char(3),
+    lease_year       text    NOT NULL, -- calendar-year lease, not the fiscal year
+    annual_gate_cost numeric(12,2) NOT NULL
+);
+
 COMMIT;
