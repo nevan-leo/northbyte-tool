@@ -157,7 +157,8 @@ Today (−$58.76M profit), the three ρ cases at plan, the full plan
 ### Independently verified against the raw case files
 
 The three workbooks were loaded into Postgres from scratch
-(`db/15_load_firstbyte.sql`) rather than trusting the prepared table:
+(`db/15_load_firstbyte.sql`) rather than trusting the prepared table. Re-run the
+checks with `psql -d northbound -f db/50_firstbyte_checks.sql`:
 
 - **Flights agree exactly**: 15,729 FY25-26 departures, counted as distinct
   (route, timestamp) pairs in the cost file.
