@@ -14,8 +14,8 @@ sys.path.insert(0, "/private/tmp/claude-501/-Users-nevanleo/"
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 W, H = 1200, 630
-PAPER, INK, INK3, RED, LINE = "#faf7f2", "#2b2521", "#6f6559", "#9c3a28", "#e2d9cc"
-MOSS = "#4f6b4a"
+PAPER, INK, INK3, RED, LINE = "#f5ebde", "#561c24", "#865a5c", "#6d2932", "#c7b7a3"
+MOSS = "#561c24"
 BOLD = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
 REG = "/System/Library/Fonts/Supplemental/Arial.ttf"
 font = lambda path, size: ImageFont.truetype(path, size)

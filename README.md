@@ -15,9 +15,22 @@ npx esbuild scripts/verify_northbyte.ts --bundle --platform=node --format=esm \
 
 ## Palette
 
-Earth tones on bone paper: dark earth ink, a clay accent reserved for loss and
-for the mark, moss reserved for an improvement, and dry grass as the third
-categorical. The map is sand land, earth shading and sage water.
+Four colours: `#561C24` deep maroon, `#6D2932` wine, `#C7B7A3` tan, `#E8D8C4`
+cream. Everything else is one of them mixed against the cream, so the page stays
+in family. Wine is reserved for loss and for the mark; the deep maroon carries
+text and anything that improved; tan is the one light value.
+
+Four related colours cannot separate three cohorts by hue alone, so each cohort
+also gets its own weight and texture, which happens to match the argument:
+
+| Cohort | Drawn as | Why |
+| --- | --- | --- |
+| Restore (10) | wine, heavy, nearly opaque | they carry the whole loss |
+| Decide (6) | tan, dashed over a dark underlay | few and short, so they need the contrast |
+| Protect (38) | deep maroon, thin, 16% opacity | the network holding steady behind |
+
+A negative figure also takes a wine tint behind it, so the signal never rests on
+two neighbouring reds alone.
 
 ## Two views
 

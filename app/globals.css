@@ -8,27 +8,33 @@
    values are used anywhere in this file.
    ========================================================================= */
 :root {
-  /* Earth palette. Three jobs: warm paper, dark earth ink, and a clay accent
-     that is reserved for loss and for the mark, so a clay number always means
-     the same thing. Moss marks an improvement, and nothing else. */
-  --paper:#faf7f2;          /* bone */
-  --paper-2:#f1ebe1;        /* sand */
-  --ink:#2b2521;            /* dark earth, 14.6:1 on bone */
-  --ink-2:#574d44;
-  --ink-3:#6f6559;          /* 5.3:1 on bone, safe at 11px */
-  --line:#e2d9cc;
-  --line-2:#2b2521;
-  --clay:#9c3a28;           /* 6.4:1 on bone */
-  --clay-tint:#f3e3dd;
-  --moss:#4f6b4a;           /* 5.3:1 on bone */
-  --grey:#9a8f7c;           /* third categorical: dry grass */
+  /* Four colours, given: deep maroon, wine, tan, cream. Everything else is a
+     tint of one of them, mixed against the cream so the page stays in family.
+     Wine is reserved for loss and for the mark; the deep maroon carries text
+     and anything that improved. */
+  --maroon:#561c24;
+  --wine:#6d2932;
+  --tan:#c7b7a3;
+  --cream:#e8d8c4;
 
-  /* Kept so existing rules read naturally; clay is the accent everywhere. */
+  --paper:#f5ebde;          /* cream lifted, so panels sit above the page */
+  --paper-2:#eaddcc;
+  --page:#e8d8c4;
+  --ink:#561c24;            /* 11.3:1 on paper */
+  --ink-2:#6f3a40;
+  --ink-3:#865a5c;          /* 4.8:1 on paper, safe at 11px */
+  --line:#c7b7a3;
+  --line-2:#561c24;
+  --clay:#6d2932;           /* 8.1:1 on paper */
+  --clay-tint:#f0dfd9;
+  --moss:#561c24;           /* improvement reads as the strong colour, not a new hue */
+  --grey:#c7b7a3;           /* third categorical: tan, the one light value */
+
   --red:var(--clay);
 
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
   --r:4px;
-  --elevation:0 1px 2px rgba(43,37,33,.06);
+  --elevation:0 1px 2px rgba(86,28,36,.08);
 
   --t-display:clamp(38px,4.4vw,58px);
   --t-figure:26px;
@@ -41,7 +47,7 @@
 * { box-sizing:border-box; }
 html { -webkit-text-size-adjust:100%; }
 body {
-  margin:0; background:var(--paper); color:var(--ink);
+  margin:0; background:var(--page); color:var(--ink);
   font-family:var(--font-geist-sans),-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
   font-size:var(--t-body); line-height:1.6;
   -webkit-font-smoothing:antialiased;
@@ -107,8 +113,10 @@ button { cursor:pointer; }
 }
 .slider input[type=range]::-moz-range-thumb { width:14px; height:14px; border-radius:var(--r); background:var(--ink); border:none; }
 
-.pos { color:var(--moss); }
-.neg { color:var(--red); }
+.pos { color:var(--ink); }
+.neg { color:var(--clay); }
+.kpi b.neg, .readoutGrid b.neg { background:var(--clay-tint); border-radius:var(--r);
+  padding:0 var(--s2); margin-left:calc(var(--s2) * -1); display:inline-block; }
 
 /* --------------------------------------------------------------- tool --- */
 .nb { padding-bottom:var(--s8); }
@@ -175,8 +183,8 @@ button { cursor:pointer; }
 .tableWrap { overflow-x:auto; }
 
 .chip { display:inline-block; width:var(--s2); height:var(--s2); border-radius:var(--r); margin-right:var(--s2); vertical-align:baseline; }
-.chip.restore { background:var(--red); }
-.chip.decide  { background:var(--grey); }
+.chip.restore { background:var(--clay); }
+.chip.decide  { background:var(--tan); box-shadow:inset 0 0 0 1px var(--ink-3); }
 .chip.protect { background:var(--ink); }
 
 .bars { display:flex; flex-direction:column; gap:var(--s3); }
@@ -184,7 +192,7 @@ button { cursor:pointer; }
 .barLabel { color:var(--ink-2); }
 .barTrack { position:relative; height:var(--s4); background:var(--paper-2); border-radius:var(--r); }
 .bar { position:absolute; left:0; top:0; height:100%; border-radius:var(--r); }
-.bar.ghost { background:#d9cfc0; }
+.bar.ghost { background:#d8c8b4; }
 .bar.restore { background:var(--red); }
 .bar.decide { background:var(--grey); }
 .bar.protect { background:var(--ink); }
@@ -236,7 +244,7 @@ button { cursor:pointer; }
 .mapSvg { display:block; width:100%; height:auto; max-height:560px; touch-action:none; cursor:grab; }
 .mapSvg.zoomed { cursor:grab; }
 .mapSvg:active { cursor:grabbing; }
-.mapLand { fill:#e9e0d1; stroke:#d6cab5; stroke-width:1; }
+.mapLand { fill:var(--cream); stroke:#b9a68f; stroke-width:1; }
 .mapDot { fill:var(--ink); }
 /* A white halo keeps codes readable where arcs converge on a hub. Size and halo
    are set on the element so they can track the zoom. */
@@ -262,7 +270,7 @@ button { cursor:pointer; }
 .tick i { display:block; width:100%; background:var(--line); border-radius:var(--r); transition:background .12s ease; }
 .tick:hover i { background:var(--ink-3); }
 .tick.now i { background:var(--ink); }
-.tick.ahead i { background:#e3c9c0; }           /* forecast reads lighter than flown */
+.tick.ahead i { background:#cfb2ad; }           /* forecast reads lighter than flown */
 .tick.ahead.on i, .tick.ahead:hover i { background:var(--red); }
 .tick.on.now i { background:var(--ink); }
 .tick.on::after { content:''; position:absolute; inset:auto 0 -6px; height:2px; background:var(--ink); }
@@ -272,7 +280,14 @@ button { cursor:pointer; }
 .trackAxis { grid-area:axis; display:flex; justify-content:space-between;
   font-size:var(--t-label); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); padding-top:var(--s2); }
 .legendNote { color:var(--ink-3); margin-left:var(--s3); flex:1 1 100%; }
-.ramp { display:inline-flex; margin-left:var(--s4); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
+/* Legend keys drawn the way the map draws them: weight and texture, not dots. */
+.rule { display:inline-block; width:22px; height:0; border-top-style:solid; margin-right:var(--s2); }
+.rule.restore { border-top-width:3px; border-top-color:var(--clay); }
+.rule.decide { border-top-width:3px; border-top-color:var(--tan); border-top-style:dashed;
+  box-shadow:0 0 0 1px rgba(86,28,36,.35); }
+.rule.protect { border-top-width:1px; border-top-color:var(--ink); opacity:.5; }
+.legend small { color:var(--ink-3); margin:0 var(--s3) 0 var(--s1); }
+.ramp { display:inline-flex; margin-left:auto; border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
 .ramp i { display:block; width:16px; height:10px; }
 .rampLabel { color:var(--ink-3); }
 @media (max-width:720px) {
@@ -295,8 +310,8 @@ button { cursor:pointer; }
 .dataView { margin-top:var(--s5); }
 .playToggle { display:inline-flex; align-items:center; gap:var(--s2); }
 
-.mapNeighbour { fill:#f4efe5; stroke:#e6ddd0; stroke-width:1; }
-.mapWater { fill:#dce5e4; stroke:#cbd6d4; stroke-width:.8; }
+.mapNeighbour { fill:#f0e6d8; stroke:#ddceb9; stroke-width:1; }
+.mapWater { fill:#faf5ee; stroke:#d3c3ad; stroke-width:.8; }
 .fleet { pointer-events:none; }
 @media (max-width:1080px) { .scenarioGrid { grid-template-columns:minmax(0,1fr); } }
 .sortIcon { display:inline-block; vertical-align:-1px; margin-left:2px; }

@@ -20,7 +20,21 @@ const LAND = map.land as { d: string; code: string }[];
 const MONTHLY = map.monthlyFlights as Record<string, number[]>;
 const HUBS = ['YVR', 'YYC', 'YEG', 'YWG', 'YYZ', 'YOW', 'YUL', 'YHZ', 'YYT'];
 const COHORT_COLOUR: Record<Route['Cohort'], string> = {
-  Restore: 'var(--red)', Decide: 'var(--grey)', Protect: 'var(--ink)',
+  Restore: 'var(--clay)', Decide: 'var(--tan)', Protect: 'var(--ink)',
+};
+// Four related colours cannot separate three cohorts on their own, so each one
+// gets its own weight and texture as well. It also matches the argument: the ten
+// Restore routes carry the loss and should shout, the thirty-eight Protect
+// routes are the network holding steady behind them.
+const COHORT_DASH: Partial<Record<Route['Cohort'], string>> = { Decide: '5 4' };
+const COHORT_OPACITY: Record<Route['Cohort'], number> = {
+  Restore: 0.85, Decide: 0.95, Protect: 0.16,
+};
+const COHORT_WEIGHT: Record<Route['Cohort'], number> = {
+  Restore: 1.6, Decide: 1.6, Protect: 0.9,
+};
+const PLANE_OPACITY: Record<Route['Cohort'], number> = {
+  Restore: 1, Decide: 1, Protect: 0.5,
 };
 const MAX_PLANES_PER_ROUTE = 7;
 const LAP_MS = 3400;           // one end-to-end crossing
@@ -183,13 +197,20 @@ export default function NetworkMap({
         ))}
         {(map.lakes as string[]).map((d, i) => <path key={`w${i}`} d={d} className="mapWater" />)}
 
-        {drawn.map(({ route, geometry, flightsPerMonth }) => (
-          <path key={route.Route}
-                d={`M${geometry!.x1} ${geometry!.y1}Q${geometry!.cx} ${geometry!.cy} ${geometry!.x2} ${geometry!.y2}`}
-                fill="none" stroke={COHORT_COLOUR[route.Cohort]}
-                strokeWidth={(0.5 + (flightsPerMonth / busiest) * 2.2) * k}
-                strokeOpacity={0.22} />
-        ))}
+        {drawn.map(({ route, geometry, flightsPerMonth }) => {
+          const d = `M${geometry!.x1} ${geometry!.y1}Q${geometry!.cx} ${geometry!.cy} ${geometry!.x2} ${geometry!.y2}`;
+          const width = (0.5 + (flightsPerMonth / busiest) * 2.2) * k * COHORT_WEIGHT[route.Cohort];
+          const dash = COHORT_DASH[route.Cohort];
+          return <g key={route.Route}>
+            {/* Tan on cream is too quiet on its own, so the Decide routes get a
+                dark underlay and the dashes ride on top of it. */}
+            {dash && <path d={d} fill="none" stroke="var(--ink)" strokeWidth={width * 1.5}
+                           strokeOpacity={0.45} />}
+            <path d={d} fill="none" stroke={COHORT_COLOUR[route.Cohort]} strokeWidth={width}
+                  strokeDasharray={dash ? dash.split(' ').map(n => Number(n) * k).join(' ') : undefined}
+                  strokeOpacity={COHORT_OPACITY[route.Cohort]} />
+          </g>;
+        })}
 
         <Traffic drawn={drawn} busiest={busiest} scale={k} />
 
@@ -227,9 +248,9 @@ export default function NetworkMap({
               playing={playing} onTogglePlay={onTogglePlay} />
 
     <p className="legend">
-      <i className="chip restore" /> Restore
-      <i className="chip decide" /> Decide
-      <i className="chip protect" /> Protect
+      <i className="rule restore" /> Restore <small>10 routes, the loss</small>
+      <i className="rule decide" /> Decide <small>6, re-cut or exited</small>
+      <i className="rule protect" /> Protect <small>38, held flat</small>
       <span className="ramp" aria-hidden="true">
         <i style={{ background: shade(0, 1) }} />
         <i style={{ background: shade(0.5, 1) }} />
@@ -262,6 +283,8 @@ function Traffic({ drawn, busiest, scale }: { drawn: Drawn[]; busiest: number; s
     return Array.from({ length: count }, (_, i) => ({
       id: `${route.Route}-${i}`,
       colour: COHORT_COLOUR[route.Cohort],
+      opacity: PLANE_OPACITY[route.Cohort],
+      outlined: route.Cohort === 'Decide',
       geometry: geometry!,
       offset: i / count,
       // A little variation per route stops the whole network pulsing in step.
@@ -301,7 +324,11 @@ function Traffic({ drawn, busiest, scale }: { drawn: Drawn[]; busiest: number; s
 
   return <g ref={group} className="fleet">
     {fleet.map(plane => (
-      <g key={plane.id}><path d={FLIGHT_PATH} fill={plane.colour} /></g>
+      <g key={plane.id}>
+        <path d={FLIGHT_PATH} fill={plane.colour} fillOpacity={plane.opacity}
+              stroke={plane.outlined ? 'var(--ink)' : undefined}
+              strokeWidth={plane.outlined ? 1.2 : undefined} />
+      </g>
     ))}
   </g>;
 }
@@ -342,11 +369,11 @@ function Timeline({ forecast, now, selected, onSelect, playing, onTogglePlay }: 
   </div>;
 }
 
-/** Province fill: sand to dry earth by departures, so the map carries volume too. */
+/** Province fill: cream to tan by departures, so the map carries volume too. */
 function shade(value: number, heaviest: number) {
   const share = heaviest > 0 ? value / heaviest : 0;
   const mix = (from: number, to: number) => Math.round(from + (to - from) * share);
-  return `rgb(${mix(233, 184)}, ${mix(224, 166)}, ${mix(209, 140)})`;
+  return `rgb(${mix(232, 199)}, ${mix(216, 183)}, ${mix(196, 163)})`;   // #e8d8c4 -> #c7b7a3
 }
 
 function monthLabel(month: string) {
