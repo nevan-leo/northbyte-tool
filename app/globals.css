@@ -250,16 +250,24 @@ button { cursor:pointer; }
 .playToggle { grid-area:play; align-self:center; min-width:72px; }
 .track { grid-area:track; display:flex; align-items:flex-end; gap:2px; height:56px; }
 .trackGap { width:var(--s4); }
-.tick { flex:1; height:100%; display:flex; align-items:flex-end; background:none; border:0; padding:0; }
+.tick { position:relative; flex:1; height:100%; display:flex; align-items:flex-end;
+  background:none; border:0; padding:0; }
 .tick i { display:block; width:100%; background:var(--line); border-radius:var(--r); transition:background .12s ease; }
 .tick:hover i { background:var(--ink-3); }
-.tick.on i { background:var(--ink); }
-.tick.plan { flex:0 0 28px; }
-.tick.plan i { background:var(--red); opacity:.35; }
-.tick.plan.on i { opacity:1; }
+.tick.now i { background:var(--ink); }
+.tick.ahead i { background:#f0ced3; }           /* forecast reads lighter than flown */
+.tick.ahead.on i, .tick.ahead:hover i { background:var(--red); }
+.tick.on.now i { background:var(--ink); }
+.tick.on::after { content:''; position:absolute; inset:auto 0 -6px; height:2px; background:var(--ink); }
+.tick em { position:absolute; top:-14px; left:0; right:0; font-style:normal;
+  font-size:9px; letter-spacing:.04em; color:var(--ink-3); }
+.track { gap:3px; padding-top:14px; height:72px; }
 .trackAxis { grid-area:axis; display:flex; justify-content:space-between;
   font-size:var(--t-label); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); padding-top:var(--s2); }
-.legendNote { color:var(--ink-3); margin-left:var(--s3); }
+.legendNote { color:var(--ink-3); margin-left:var(--s3); flex:1 1 100%; }
+.ramp { display:inline-flex; margin-left:var(--s4); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
+.ramp i { display:block; width:16px; height:10px; }
+.rampLabel { color:var(--ink-3); }
 @media (max-width:720px) {
   .mapReadout { position:static; margin-bottom:var(--s3); }
   .mapReadout b { font-size:28px; }

@@ -15,6 +15,8 @@ import { FLIGHT_PATH } from './Brand';
 // fetched at runtime.
 
 const AIRPORTS = map.airports as Record<string, { x: number; y: number; city: string }>;
+const REGION_OF = map.airportRegion as Record<string, string>;
+const LAND = map.land as { d: string; code: string }[];
 const MONTHLY = map.monthlyFlights as Record<string, number[]>;
 const HUBS = ['YVR', 'YYC', 'YEG', 'YWG', 'YYZ', 'YOW', 'YUL', 'YHZ', 'YYT'];
 const COHORT_COLOUR: Record<Route['Cohort'], string> = {
@@ -47,17 +49,21 @@ const BASE: Box = (() => {
 })();
 const MAX_ZOOM = 8;
 
+export type ForecastStep = { label: string; tranche: number; flights: Record<string, number> };
+
 export default function NetworkMap({
-  scenarioFlights, selected, onSelect, playing, onTogglePlay,
+  forecast, selected, onSelect, playing, onTogglePlay,
 }: {
-  scenarioFlights: Record<string, number>;
-  selected: number;
+  forecast: ForecastStep[];           // annual flights per route, month by month
+  selected: number;                   // 0 = now (flown), 1..n = months ahead
   onSelect: (index: number) => void;
   playing: boolean;
   onTogglePlay: () => void;
 }) {
   const months = map.months as string[];
-  const isPlan = selected >= months.length;
+  const nowIndex = months.length - 1;        // the last month actually flown
+  const isForecast = selected > 0;
+  const step = forecast[selected - 1];
 
   const svg = useRef<SVGSVGElement>(null);
   const [box, setBox] = useState<Box>(BASE);
@@ -99,7 +105,11 @@ export default function NetworkMap({
     // stop the page scrolling under the cursor.
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      zoomAt(event.deltaY < 0 ? 1.18 : 1 / 1.18, event.clientX, event.clientY);
+      // deltaMode 1 is lines rather than pixels; both are clamped so a flick of
+      // a trackpad and a notch of a mouse wheel feel about the same.
+      const pixels = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+      const stepSize = Math.min(Math.abs(pixels), 50) / 50;
+      zoomAt(Math.pow(1.07, pixels < 0 ? stepSize : -stepSize), event.clientX, event.clientY);
     };
     node.addEventListener('wheel', onWheel, { passive: false });
     return () => node.removeEventListener('wheel', onWheel);
@@ -127,20 +137,31 @@ export default function NetworkMap({
   const drawn = useMemo(() => routes.map(route => ({
     route,
     geometry: geometryFor(route),
-    flightsPerMonth: isPlan
-      ? scenarioFlights[route.Route] / 12
-      : (MONTHLY[route.Route]?.[selected] ?? 0),
-  })).filter(r => r.geometry && r.flightsPerMonth > 0), [selected, isPlan, scenarioFlights]);
+    flightsPerMonth: isForecast
+      ? (step?.flights[route.Route] ?? 0) / 12
+      : (MONTHLY[route.Route]?.[nowIndex] ?? 0),
+  })).filter(r => r.geometry && r.flightsPerMonth > 0), [isForecast, step, nowIndex]);
+
+  // Departures by province, which is what the shading under the network shows.
+  const byProvince = useMemo(() => {
+    const totals: Record<string, number> = {};
+    drawn.forEach(({ route, flightsPerMonth }) => {
+      const code = REGION_OF[route.Dep];
+      if (code) totals[code] = (totals[code] ?? 0) + flightsPerMonth;
+    });
+    return totals;
+  }, [drawn]);
+  const heaviest = Math.max(...Object.values(byProvince), 1);
 
   const total = drawn.reduce((a, r) => a + r.flightsPerMonth, 0);
   const busiest = Math.max(...drawn.map(r => r.flightsPerMonth), 1);
   const totals = map.monthlyTotals as number[];
-  // Sep 2024 - Feb 2025 is the pre-expansion window the plan rolls back toward,
-  // so a flown month is best read against it; the plan is best read against now.
+  const now = totals[nowIndex];
+  // Sep 2024 - Feb 2025 is the pre-expansion window the rollback aims at, and is
+  // the only fair yardstick for where the airline stands today.
   const preExpansion = totals.slice(0, 6).reduce((a, v) => a + v, 0) / 6;
-  const now = totals[totals.length - 1];
-  const against = isPlan
-    ? { value: now, label: `${monthLabel(months[months.length - 1])}` }
+  const against = isForecast
+    ? { value: now, label: `today (${monthLabel(months[nowIndex])})` }
     : { value: preExpansion, label: 'the pre-expansion months' };
   const change = against.value > 0 ? Math.round((total / against.value - 1) * 100) : 0;
 
@@ -151,9 +172,12 @@ export default function NetworkMap({
            onPointerDown={onPointerDown} onPointerMove={onPointerMove}
            onPointerUp={endDrag} onPointerLeave={endDrag}
            role="img"
-           aria-label={`NorthByte network, ${isPlan ? 'recommended plan' : monthLabel(months[selected])}: ${Math.round(total)} flights in the month`}>
+           aria-label={`NorthByte network, ${isForecast ? `forecast ${step.label}` : `today, ${monthLabel(months[nowIndex])}`}: ${Math.round(total)} flights in the month`}>
         {(map.neighbours as string[]).map((d, i) => <path key={`n${i}`} d={d} className="mapNeighbour" />)}
-        {(map.land as string[]).map((d, i) => <path key={`l${i}`} d={d} className="mapLand" />)}
+        {LAND.map((shape, i) => (
+          <path key={`l${i}`} d={shape.d} className="mapLand"
+                style={{ fill: shade(byProvince[shape.code] ?? 0, heaviest) }} />
+        ))}
         {(map.lakes as string[]).map((d, i) => <path key={`w${i}`} d={d} className="mapWater" />)}
 
         {drawn.map(({ route, geometry, flightsPerMonth }) => (
@@ -176,14 +200,14 @@ export default function NetworkMap({
       </svg>
 
       <div className="mapZoom">
-        <button className="pill" onClick={() => zoomAt(1.5)} aria-label="Zoom in"><ZoomIn size={14} /></button>
-        <button className="pill" onClick={() => zoomAt(1 / 1.5)} aria-label="Zoom out"><ZoomOut size={14} /></button>
+        <button className="pill" onClick={() => zoomAt(1.35)} aria-label="Zoom in"><ZoomIn size={14} /></button>
+        <button className="pill" onClick={() => zoomAt(1 / 1.35)} aria-label="Zoom out"><ZoomOut size={14} /></button>
         <button className="pill" onClick={() => setBox(BASE)} aria-label="Reset the view"
                 disabled={!zoomed}><Maximize2 size={14} /></button>
       </div>
 
       <div className="mapReadout">
-        <small>{isPlan ? 'Recommended plan' : monthLabel(months[selected])}</small>
+        <small>{isForecast ? `Forecast · ${step.label}` : `Today · ${monthLabel(months[nowIndex])}`}</small>
         <b>{Math.round(total).toLocaleString('en-US')}</b>
         <span>flights in the month</span>
         {/* Against the busiest month flown, so the size of the cut is legible
@@ -195,15 +219,24 @@ export default function NetworkMap({
       </div>
     </div>
 
-    <Timeline months={months} selected={selected} onSelect={onSelect}
-              playing={playing} onTogglePlay={onTogglePlay}
-              planTotal={Object.values(scenarioFlights).reduce((a, v) => a + v, 0) / 12} />
+    <Timeline forecast={forecast} now={now} selected={selected} onSelect={onSelect}
+              playing={playing} onTogglePlay={onTogglePlay} />
 
     <p className="legend">
       <i className="chip restore" /> Restore
       <i className="chip decide" /> Decide
       <i className="chip protect" /> Protect
-      <span className="legendNote">Aircraft shown and line weight follow flights per month. Sep 2024 – Aug 2026 is flown history; the plan is a scenario.</span>
+      <span className="ramp" aria-hidden="true">
+        <i style={{ background: shade(0, 1) }} />
+        <i style={{ background: shade(0.5, 1) }} />
+        <i style={{ background: shade(1, 1) }} />
+      </span>
+      <span className="rampLabel">Departures by province</span>
+      <span className="legendNote">
+        Aircraft and line weight follow flights per month; provinces are shaded by
+        departures. Today is the last month flown. The twelve months ahead are a
+        forecast of the plan phasing in, not a prediction of demand.
+      </span>
     </p>
   </div>;
 }
@@ -268,40 +301,47 @@ function Traffic({ drawn, busiest, scale }: { drawn: Drawn[]; busiest: number; s
   </g>;
 }
 
-function Timeline({ months, selected, onSelect, playing, onTogglePlay, planTotal }: {
-  months: string[]; selected: number; onSelect: (i: number) => void;
-  playing: boolean; onTogglePlay: () => void; planTotal: number;
+function Timeline({ forecast, now, selected, onSelect, playing, onTogglePlay }: {
+  forecast: ForecastStep[]; now: number; selected: number;
+  onSelect: (i: number) => void; playing: boolean; onTogglePlay: () => void;
 }) {
-  const totals = map.monthlyTotals as number[];
-  const peak = Math.max(...totals, planTotal, 1);
-  const bar = (value: number) => `${Math.max(3, (value / peak) * 100)}%`;
+  const levels = [now, ...forecast.map(stepOf => Object.values(stepOf.flights)
+    .reduce((a, v) => a + v, 0) / 12)];
+  const peak = Math.max(...levels, 1);
 
   return <div className="timeline">
     <button className="pill playToggle" onClick={onTogglePlay} aria-pressed={playing}>
       {playing ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />}
       {playing ? 'Pause' : 'Play'}
     </button>
-    <div className="track" role="group" aria-label="Flights by month">
-      {totals.map((value, index) => (
-        <button key={months[index]} className={`tick ${selected === index ? 'on' : ''}`}
+    <div className="track" role="group" aria-label="Flights per month, today and the twelve months ahead">
+      {levels.map((value, index) => {
+        const stepOf = forecast[index - 1];
+        // Mark the month a tranche of the rollback lands.
+        const lands = index > 0 && stepOf.tranche !== (forecast[index - 2]?.tranche ?? 0);
+        return <button key={index}
+                className={`tick ${index === 0 ? 'now' : 'ahead'} ${selected === index ? 'on' : ''}`}
                 onClick={() => onSelect(index)}
-                aria-label={`${monthLabel(months[index])}, ${value.toLocaleString('en-US')} flights`}
+                aria-label={index === 0
+                  ? `Today, ${Math.round(value).toLocaleString('en-US')} flights`
+                  : `${stepOf.label}, ${Math.round(value).toLocaleString('en-US')} flights, tranche ${stepOf.tranche} applied`}
                 aria-pressed={selected === index}>
-          <i style={{ height: bar(value) }} />
-        </button>
-      ))}
-      <span className="trackGap" aria-hidden="true" />
-      <button className={`tick plan ${selected >= totals.length ? 'on' : ''}`}
-              onClick={() => onSelect(totals.length)}
-              aria-label={`Recommended plan, ${Math.round(planTotal).toLocaleString('en-US')} flights a month`}
-              aria-pressed={selected >= totals.length}>
-        <i style={{ height: bar(planTotal) }} />
-      </button>
+          <i style={{ height: `${Math.max(3, (value / peak) * 100)}%` }} />
+          {lands && <em>T{stepOf.tranche}</em>}
+        </button>;
+      })}
     </div>
     <div className="trackAxis">
-      <span>Sep 2024</span><span>Mar 2025</span><span>Sep 2025</span><span>Mar 2026</span><span>Plan</span>
+      <span>Today</span><span>+3 months</span><span>+6</span><span>+9</span><span>+12</span>
     </div>
   </div>;
+}
+
+/** Province fill: a grey ramp by departures, so the map carries volume too. */
+function shade(value: number, heaviest: number) {
+  const share = heaviest > 0 ? value / heaviest : 0;
+  const tone = Math.round(239 - share * 54);        // #efefec down to a mid grey
+  return `rgb(${tone}, ${tone}, ${tone - 3})`;
 }
 
 function monthLabel(month: string) {

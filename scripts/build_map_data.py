@@ -8,6 +8,7 @@ numbers and the SVG can be pasted straight into a design tool as clean vectors.
     scripts/build_map_data.py          (needs the northbound database loaded)
 """
 
+import csv
 import json
 import math
 import sys
@@ -87,13 +88,15 @@ def shrink(ring, tolerance, min_area):
     return simplify(projected, tolerance)
 
 
-def collect(features, tolerance, min_area):
+def collect(features, tolerance, min_area, key=None):
+    """Returns rings, each tagged with the feature it came from when `key` is set."""
     out = []
     for feature in features:
+        label = feature["properties"].get(key) if key else None
         for ring in rings_of(feature["geometry"]):
             reduced = shrink(ring, tolerance, min_area)
             if reduced and len(reduced) > 3:
-                out.append(reduced)
+                out.append((reduced, label))
     return out
 
 
@@ -107,11 +110,20 @@ lakes = [f for f in json.loads(LAKES.read_text())["features"]
              "Lake Nipigon", "Reindeer Lake", "Lake Manitoba"}]
 
 # Provinces carry the national outline and the internal borders in one pass.
-rings = collect(provinces, 0.0009, 0.00012)
-neighbour_rings = collect([f for f in countries
-                           if f["properties"]["NAME"] in ("United States of America", "Greenland")],
-                          0.0016, 0.0006)
-lake_rings = collect(lakes, 0.0006, 0.00002)
+province_rings = collect(provinces, 0.0009, 0.00012, key="postal")
+rings = [ring for ring, _ in province_rings]
+neighbour_rings = [r for r, _ in collect(
+    [f for f in countries if f["properties"]["NAME"] in ("United States of America", "Greenland")],
+    0.0016, 0.0006)]
+lake_rings = [r for r, _ in collect(lakes, 0.0006, 0.00002)]
+
+# Which province each airport sits in, so departures can shade the map.
+airport_region = {}
+with (ROOT / "data" / "raw" / "ourairports_airports.csv").open(newline="", encoding="utf-8") as fh:
+    for row in csv.DictReader(fh):
+        code = row["iata_code"].strip()
+        if code and row["iso_region"].startswith("CA-"):
+            airport_region[code] = row["iso_region"].split("-")[1]
 
 airports = {code: (float(lon), float(lat), city) for code, city, lat, lon in
             [(r[0], r[1], r[2], r[3]) for r in
@@ -133,7 +145,7 @@ place = lambda x, y: (round((x - min(xs)) * scale + PAD, 1),
 def to_path(ring):
     return "M" + "L".join(f"{x} {y}" for x, y in (place(x, y) for x, y in ring)) + "Z"
 
-paths = [to_path(ring) for ring in rings]
+paths = [{"d": to_path(ring), "code": label} for ring, label in province_rings]
 neighbours = [to_path(ring) for ring in neighbour_rings]
 lake_paths = [to_path(ring) for ring in lake_rings]
 
@@ -160,6 +172,7 @@ view = (x0, y0, max(ax) - x0 + 40, max(ay) - y0 + 60)
 payload = {
     "viewBox": " ".join(str(round(v)) for v in view),
     "land": paths,
+    "airportRegion": airport_region,
     "neighbours": neighbours,
     "lakes": lake_paths,
     "airports": {code: {"x": place(*projected_airports[code])[0],

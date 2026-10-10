@@ -22,17 +22,23 @@ route tables and the assumption list: the evidence a judge asks for.
 ## The map
 
 The opening frame is the network as it is flown **today** — Aug 2026, the last
-month in the data, at 1,474 flights, 76% above the pre-expansion months. Scrub
-the timeline and the traffic thins: the recommended plan carries 907 a month.
-One arc per route, line weight and aircraft in proportion to flights.
+month in the data, at 1,474 flights, 76% above the pre-expansion months. The
+timeline then runs **forward**: twelve months of the rollback phasing in, one
+tranche a quarter, ending at 907 flights a month, 38% below today. Tranche
+landings are marked on the axis.
 
-Wheel or the buttons to zoom, drag to pan. Symbols are scaled against the frame,
-so aircraft, airport dots, labels and line weights stay the same size on screen
-at any zoom.
+The forecast is the model on a calendar, not a separate assumption: each month
+asks `scenario()` for the tranches applied by then, capped by the tranche the
+levers allow, so moving a lever moves the whole projection.
 
-The 24 months on that timeline are **real**, counted from the cost file as
-distinct (route, departure timestamp) pairs; only the step marked *Plan* is a
-scenario, and the legend says so. Everything is plain SVG at coordinates
+Provinces are shaded by departures, line weight and aircraft follow flights per
+month. Wheel or the buttons to zoom, drag to pan; symbols scale against the
+frame, so aircraft, dots, labels and line weights hold their size on screen at
+any zoom.
+
+Today's figure is **real**, counted from the cost file as distinct (route,
+departure timestamp) pairs; everything to the right of it is a forecast of the
+plan phasing in, not a prediction of demand, and the legend says so. Everything is plain SVG at coordinates
 projected in `scripts/build_map_data.py` (Web Mercator, so the country reads the
 way every online map draws it) from the public-domain Natural Earth 1:50m provinces,
 country outlines and lakes, so the frame can be pasted into a design tool as
