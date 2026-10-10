@@ -13,17 +13,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Northbound | Airline Route Lab',
-  description: 'Interactive U.S.–Canada airline route opportunity simulator.',
+  title: 'NorthByte | Profit Scenario Tool',
+  description: 'Interactive profit diagnosis for NorthByte Airlines, First Byte 2026.',
   openGraph: {
-    title: 'Northbound | Which route should we launch next?',
-    description: 'U.S.–Canada airline route opportunity simulator.',
+    title: 'NorthByte | What does it take to stop losing money?',
+    description: 'Move the levers and see where profit lands against breakeven.',
     images: [{ url: '/og.png', width: 1792, height: 933 }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Northbound | Which route should we launch next?',
-    description: 'U.S.–Canada airline route opportunity simulator.',
+    title: 'NorthByte | What does it take to stop losing money?',
+    description: 'Move the levers and see where profit lands against breakeven.',
     images: ['/og.png'],
   },
 };
