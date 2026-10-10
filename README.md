@@ -55,11 +55,14 @@ The opening frame is the network as it was last flown — **Aug 2026**, when the
 fiscal year closed, at 1,474 flights a month, 76% above the pre-expansion
 window. The timeline then runs **forward from the month after the one we are
 actually in**: twelve months of the rollback phasing in, one tranche a quarter,
-ending at 907 flights a month and **+$58.0M of profit a year against today**.
+ending at 907 flights a month and **+$58.0M of profit if that frequency held for
+a full year**.
 Tranche landings are marked on the axis.
 
 The readout leads with the profit recovered rather than the flights cut, because
-the cut is the means and the recovery is the point. Gaps elsewhere read as what
+the cut is the means and the recovery is the point. Every profit figure restates
+FY25-26 at the chosen frequency — one year re-run, not a run rate. Nothing
+compounds, and no second year is projected. Gaps elsewhere read as what
 there is to close, not as a negative target to aim at.
 
 The forecast is the model on a calendar, not a separate assumption: each month

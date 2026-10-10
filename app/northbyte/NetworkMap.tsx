@@ -178,8 +178,9 @@ export default function NetworkMap({
   // the only fair yardstick for where the airline stands today.
   const preExpansion = totals.slice(0, 6).reduce((a, v) => a + v, 0) / 6;
   const change = preExpansion > 0 ? Math.round((total / preExpansion - 1) * 100) : 0;
-  // What the plan is for. A cut in flights is the means; the profit it recovers
-  // is the thing worth putting on the slide.
+  // What the plan is for: a cut in flights is the means, the profit it recovers
+  // is the point. The model restates FY25-26 at the chosen frequency, so this is
+  // one year re-run, not a run rate and not something that compounds.
   const recovered = isForecast ? step.profit - todayProfit : 0;
 
   return <div className="mapBlock">
@@ -241,7 +242,7 @@ export default function NetworkMap({
             without clicking back and forth. */}
         <span className={`mapDelta ${isForecast && recovered > 0 ? 'up' : ''}`}>
           {isForecast
-            ? <><Figure value={recovered / 1_000_000} format={v => `+$${v.toFixed(1)}M`} /> profit a year vs today</>
+            ? <><Figure value={recovered / 1_000_000} format={v => `+$${v.toFixed(1)}M`} /> if this frequency held for a full year</>
             : `${change < 0 ? '−' : '+'}${Math.abs(change)}% flights vs the pre-expansion months`}
         </span>
       </div>
@@ -255,10 +256,7 @@ export default function NetworkMap({
       <i className="rule decide" /> Decide <small>6, re-cut or exited</small>
       <i className="rule protect" /> Protect <small>38, held flat</small>
       <span className="legendNote">
-        One aircraft stands for about {Math.round(FLIGHTS_PER_PLANE)} flights a month, so the
-        traffic thins as flights come out. The first column is the last month in the data, Aug 2026, when
-        the fiscal year closed. The twelve months ahead are a forecast of the plan
-        phasing in, not a prediction of demand.
+        One aircraft stands for about {Math.round(FLIGHTS_PER_PLANE)} flights a month.
       </span>
     </p>
   </div>;
