@@ -1,40 +1,40 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, RotateCcw } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { RotateCcw } from 'lucide-react';
 import NetworkMap, { type ForecastStep } from './NetworkMap';
-import { Figure } from './Figure';
+import LeverPanel from './Levers';
+import EvidenceView from './EvidenceView';
+import { Figure, TweenSpeed } from './Figure';
 import {
-  scenario, routes, constants, presets, DEFAULT_LEVERS, TODAY_LEVERS, COHORTS,
-  requiredFarePct, breakevenRhoDown, protectTicketRevenue,
-  type Levers, type Cohort,
+  scenario, presets, DEFAULT_LEVERS, TODAY_LEVERS, type Levers,
 } from './model';
 
 const M = 1_000_000;
 const money = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(v / M).toFixed(1)}M`;
-const count = (v: number) => Math.round(v).toLocaleString('en-US');
-const pct = (v: number) => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}%`;
 const sign = (v: number) => (v < 0 ? 'neg' : v > 0 ? 'pos' : '');
 
-const PRESETS: Record<string, Levers> = {
-  Today: TODAY_LEVERS,
-  'Rollback only': { ...DEFAULT_LEVERS, tranche: 3, farePct: 0 },
-  'Full plan': {
-    ...DEFAULT_LEVERS, tranche: 4, farePct: presets.costPassThroughFarePct,
-    gates: 'forecast', releaseIdleGates: true, seasonal: true,
-  },
+/** The two states the audience is asked to compare. */
+const TODAY: Levers = { ...TODAY_LEVERS, restoreLevel: 0, decideLevel: 0, farePct: 0,
+                        releaseIdleGates: false, gates: 'actual', phase: 1, tranche: 4 };
+const PLAN: Levers = {
+  ...DEFAULT_LEVERS, phase: 1, tranche: 4, restoreLevel: 1, decideLevel: 1,
+  farePct: presets.costPassThroughFarePct, gates: 'forecast',
+  releaseIdleGates: true, seasonal: true,
 };
 
+const FORECAST_MONTHS = 12;
+// Pinned rather than read from the clock, so a screenshot taken in any month
+// shows the same twelve months the deck does.
+const FORECAST_START = new Date(2026, 10);        // November 2026
+
 export default function ScenarioTool() {
-  const [levers, setLevers] = useState<Levers>(PRESETS['Full plan']);
-  const [tab, setTab] = useState<'scenario' | 'data'>('scenario');
-  const [cohortFilter, setCohortFilter] = useState<'All' | Cohort>('All');
-  // The map looks forward: step 0 is today, steps 1-12 are the months ahead as
-  // the plan phases in. Nothing behind today is scrubbable, because the question
-  // on the slide is what happens next.
-  const FORECAST_MONTHS = 12;
+  const [levers, setLevers] = useState<Levers>(PLAN);
+  const [tab, setTab] = useState<'map' | 'evidence'>('map');
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [busy, setBusy] = useState(false);          // dragging, or animating to a state
+  const animation = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!playing) return;
@@ -42,32 +42,48 @@ export default function ScenarioTool() {
       () => setStep(current => (current >= FORECAST_MONTHS ? 0 : current + 1)), 700);
     return () => window.clearInterval(id);
   }, [playing]);
-  type SortKey = 'contribution' | 'delta' | 'flights';
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'contribution', dir: 1 });
-  const toggleSort = (key: SortKey) =>
-    setSort(current => ({ key, dir: current.key === key ? (current.dir === 1 ? -1 : 1) : 1 }));
 
-  const set = <K extends keyof Levers>(key: K, value: Levers[K]) =>
-    setLevers(current => ({ ...current, [key]: value }));
+  const set = useCallback(<K extends keyof Levers>(key: K, value: Levers[K]) =>
+    setLevers(current => ({ ...current, [key]: value })), []);
+
+  /** Walk the levers to a target state so the audience watches the planes leave. */
+  const glideTo = useCallback((target: Levers, ms = 1500) => {
+    if (animation.current) cancelAnimationFrame(animation.current);
+    setBusy(true);
+    setLevers(from => {
+      const started = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - started) / ms);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const at = (a: number, b: number) => a + (b - a) * eased;
+        setLevers({
+          ...target,
+          restoreLevel: at(from.restoreLevel, target.restoreLevel),
+          decideLevel: at(from.decideLevel, target.decideLevel),
+          farePct: at(from.farePct, target.farePct),
+          // The switches land at the end rather than flickering on the way.
+          releaseIdleGates: t < 1 ? from.releaseIdleGates : target.releaseIdleGates,
+          gates: t < 1 ? from.gates : target.gates,
+        });
+        if (t < 1) animation.current = requestAnimationFrame(tick);
+        else { animation.current = undefined; setBusy(false); }
+      };
+      animation.current = requestAnimationFrame(tick);
+      return from;
+    });
+  }, []);
+
+  useEffect(() => () => { if (animation.current) cancelAnimationFrame(animation.current); }, []);
 
   const today = useMemo(() => scenario(TODAY_LEVERS), []);
   const result = useMemo(() => scenario(levers), [levers]);
-  const breakevenRho = useMemo(() => breakevenRhoDown(levers), [levers]);
-  const fareForBreakeven = requiredFarePct(result.gapToBreakeven, levers.elasticity, protectTicketRevenue);
-  const fareForTarget = requiredFarePct(Math.max(0, result.gapToTarget), levers.elasticity, protectTicketRevenue);
 
-  // Waterfall: today's profit to the scenario profit, one step per lever family.
-  // One tranche lands per quarter, never past the tranche the levers allow, so
-  // the forecast is the plan on a calendar rather than a separate assumption.
-  const forecast = useMemo<ForecastStep[]>(() => {
-    // The books close at 31 Aug 2026; the plan can only start from the month
-    // after the one we are actually in, which is why this reads the clock
-    // rather than counting on from the end of the data.
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth() + 1);
-    return Array.from({ length: FORECAST_MONTHS }, (_, i) => {
+  // One tranche lands a quarter, never past what the levers allow, so the
+  // forecast is the plan on a calendar rather than a separate assumption.
+  const forecast = useMemo<ForecastStep[]>(() =>
+    Array.from({ length: FORECAST_MONTHS }, (_, i) => {
       const tranche = Math.min(levers.tranche, Math.floor(i / 3) + 1);
-      const month = new Date(start.getFullYear(), start.getMonth() + i);
+      const month = new Date(FORECAST_START.getFullYear(), FORECAST_START.getMonth() + i);
       const projection = scenario({ ...levers, tranche });
       return {
         label: month.toLocaleString('en-US', { month: 'short', year: 'numeric' }),
@@ -75,401 +91,87 @@ export default function ScenarioTool() {
         profit: projection.profit,
         flights: Object.fromEntries(projection.byRoute.map(r => [r.route.Route, r.flights])),
       };
-    });
-  }, [levers]);
+    }), [levers]);
 
-  const steps = useMemo(() => {
-    const cohortStep = (cohort: Cohort) => {
-      const fare = result.byRoute
-        .filter(r => r.route.Cohort === cohort)
-        .reduce((a, r) => a + r.fareGain, 0);
-      return result.byCohort[cohort].contribution - fare - today.byCohort[cohort].contribution;
-    };
-    return [
-      { label: 'Restore rollback', value: cohortStep('Restore') },
-      { label: 'Decide changes', value: cohortStep('Decide') },
-      { label: 'Protect flights', value: cohortStep('Protect') },
-      { label: 'Lost connection feed', value: -result.feedLoss },
-      { label: 'Protect fares', value: result.fareGain },
-      { label: 'Gates', value: today.gates - result.gates },
-    ].filter(s => Math.abs(s.value) > 1000);
-  }, [result, today]);
+  const atPlan = JSON.stringify(levers) === JSON.stringify(PLAN);
 
-  const tableRows = useMemo(() => {
-    const rows = result.byRoute
-      .map((r, i) => ({ ...r, todayRow: today.byRoute[i] }))
-      .filter(r => cohortFilter === 'All' || r.route.Cohort === cohortFilter);
-    const key = (r: typeof rows[number]) =>
-      sort.key === 'contribution' ? r.contribution
-        : sort.key === 'flights' ? r.flights
-        : r.contribution - r.todayRow.contribution;
-    return rows.sort((a, b) => (key(a) - key(b)) * sort.dir);
-  }, [result, today, cohortFilter, sort]);
+  return <TweenSpeed.Provider value={busy ? 100 : 420}>
+    <section className="nb shell">
+      <section className="hero">
+        <div>
+          <p className="eyebrow">NORTHBYTE AIRLINES · FY25-26 PROFIT DIAGNOSIS</p>
+          <h1>What does it take<br />to stop losing money?</h1>
+        </div>
+        <p className="intro">
+          Flights grew 20% while revenue grew 4.8% and costs grew 23%. Pull the four
+          solutions and watch the network, the forecast and the profit move together.
+        </p>
+      </section>
 
-  const sortProps = (key: SortKey) => ({
-    className: 'sortable',
-    onClick: () => toggleSort(key),
-    'aria-sort': (sort.key === key
-      ? (sort.dir === 1 ? 'ascending' : 'descending')
-      : undefined) as 'ascending' | 'descending' | undefined,
-  });
-  const arrow = (key: SortKey) => sort.key !== key ? null
-    : sort.dir === 1 ? <ArrowUp size={11} aria-hidden className="sortIcon" />
-    : <ArrowDown size={11} aria-hidden className="sortIcon" />;
+      <nav className="tabs" aria-label="Views">
+        {([['map', 'The plan'], ['evidence', 'Evidence']] as const).map(([id, label]) => (
+          <button key={id} className={`tab ${tab === id ? 'on' : ''}`}
+                  aria-current={tab === id ? 'page' : undefined}
+                  onClick={() => setTab(id)}>{label}</button>
+        ))}
+        <button className="pill reset" onClick={() => glideTo(PLAN, 600)} disabled={atPlan}>
+          <RotateCcw size={13} aria-hidden /> Reset
+        </button>
+      </nav>
 
-  const worst = useMemo(
-    () => [...result.byRoute].sort((a, b) => a.contribution - b.contribution).slice(0, 10),
-    [result]);
-  const worstScale = Math.max(...worst.map(r =>
-    Math.max(Math.abs(r.contribution), Math.abs(today.byRoute.find(t => t.route.Route === r.route.Route)!.contribution))), 1);
-
-  const underFilled = result.byRoute.filter(r => r.underFilled).length;
-  const activePreset = Object.entries(PRESETS)
-    .find(([, p]) => JSON.stringify(p) === JSON.stringify(levers))?.[0];
-
-  return <section className="nb shell">
-    <section className="hero">
-      <div>
-        <p className="eyebrow">NORTHBYTE AIRLINES · FY25-26 PROFIT DIAGNOSIS</p>
-        <h1>What does it take<br />to stop losing money?</h1>
+      <div className="headline">
+        <div className="headlineFigure">
+          <small>Profit after gates</small>
+          <b className={sign(result.profit)}>
+            <Figure value={result.profit} format={money} />
+          </b>
+          <span>today {money(today.profit)}</span>
+        </div>
+        <div className="headlineBar" aria-hidden="true">
+          <i className="headlineTrack">
+            <i className="headlineFill" style={{
+              width: `${Math.min(100, Math.max(0, (1 - result.profit / today.profit) * 100))}%`,
+            }} />
+            <i className="headlineZero" />
+          </i>
+          <span className="headlineEnds"><em>{money(today.profit)}</em><em>break even</em></span>
+        </div>
+        <div className="headlineFigure right">
+          <small>{result.gapToBreakeven > 0.05 ? 'Left to break even' : 'Past break even by'}</small>
+          <b className={result.gapToBreakeven > 0.05 ? 'neg' : 'pos'}>
+            <Figure value={Math.abs(result.gapToBreakeven > 0.05 ? result.gapToBreakeven : result.profit)}
+                    format={money} />
+          </b>
+          <span>today {money(Math.max(0, -today.profit))}</span>
+        </div>
       </div>
-      <p className="intro">
-        Flights grew 20% while revenue grew 4.8% and costs grew 23%. Move the levers to see
-        where profit lands against breakeven and a sustainable target.
-      </p>
+
+      {tab === 'map' && <div className="scenarioGrid viewFade" key="map">
+        <div onPointerDown={() => setBusy(true)}
+             onPointerUp={() => setBusy(false)}
+             onPointerCancel={() => setBusy(false)}>
+          <LeverPanel levers={levers} set={set} result={result}
+                      onToday={() => glideTo(TODAY)} onPlan={() => glideTo(PLAN)}
+                      animating={busy} />
+        </div>
+
+        <div className="panel mapPanel">
+          <div className="sectionhead">
+            <span>Where the flights go</span>
+            <small>Flights per month · the twelve months ahead</small>
+          </div>
+          <NetworkMap forecast={forecast} todayProfit={today.profit} fareGain={result.fareGain}
+                      selected={step} onSelect={setStep}
+                      playing={playing} onTogglePlay={() => setPlaying(p => !p)} />
+        </div>
+      </div>}
+
+      {tab === 'evidence' && <EvidenceView levers={levers} result={result} today={today} />}
+
+      <div className="colophon">
+        <span>BOLT UBC First Byte 2026 · NorthByte Airlines · FY25-26 (1 Sep 2025 – 31 Aug 2026)</span>
+        <span>54 routes · 15,729 flights · all amounts in Canadian dollars</span>
+      </div>
     </section>
-
-    <nav className="tabs" aria-label="Views">
-      {([['scenario', 'Scenario'], ['data', 'Data and assumptions']] as const).map(([id, label]) => (
-        <button key={id} className={`tab ${tab === id ? 'on' : ''}`}
-                aria-current={tab === id ? 'page' : undefined}
-                onClick={() => setTab(id)}>{label}</button>
-      ))}
-    </nav>
-
-    <div className="nbPresets">
-      {Object.keys(PRESETS).map(name => (
-        <button key={name} className={`pill ${activePreset === name ? 'active' : ''}`}
-                onClick={() => setLevers(PRESETS[name])}>{name}</button>
-      ))}
-      <button className="pill reset" onClick={() => setLevers(PRESETS['Full plan'])}>
-        <RotateCcw size={13} aria-hidden /> Reset
-      </button>
-    </div>
-
-    <div className="kpiStrip">
-      <Kpi label="Flights" value={result.flights} format={count} today={count(today.flights)} />
-      <Kpi label="Net revenue" value={result.revenue + result.fareGain - result.feedLoss} format={money} today={money(today.revenue)} />
-      <Kpi label="Operating cost" value={result.cost} format={money} today={money(today.cost)} />
-      <Kpi label="Contribution" value={result.contribution} format={money} today={money(today.contribution)} tone={sign(result.contribution)} />
-      <Kpi label="Gates" value={result.gates} format={money} today={money(today.gates)} />
-      <Kpi label="Profit after gates" value={result.profit} format={money} today={money(today.profit)} tone={sign(result.profit)} wide />
-      <Kpi label="Margin" value={result.margin * 100} format={pct} today={pct(today.margin * 100)} tone={sign(result.margin)} />
-      <Kpi label="Left to break even" value={result.gapToBreakeven} format={v => v > 0.05 ? money(v) : 'cleared'}
-           today={money(Math.max(0, -today.profit))} tone={result.gapToBreakeven > 0 ? 'neg' : 'pos'} />
-      <Kpi label={`Left to the ${levers.targetMarginPct.toFixed(1)}% target`}
-           value={result.gapToTarget} format={v => v > 0.05 ? money(v) : 'cleared'}
-           today={money(today.target - today.profit)} tone={result.gapToTarget > 0 ? 'neg' : 'pos'} />
-    </div>
-
-
-    {tab === 'scenario' && <div className="scenarioGrid viewFade" key="scenario">
-      <aside className="levers">
-        <div className="sectionhead"><span>The plan</span><small>Six pillars</small></div>
-
-        <label className="pillarMode">Mode
-          <select value={levers.mode} onChange={e => set('mode', e.target.value as Levers['mode'])}>
-            <option value="preset">Preset plan</option>
-            <option value="manual">Manual</option>
-          </select>
-        </label>
-
-        {levers.mode === 'manual' ? COHORTS.map(cohort => (
-          <Slider key={cohort} label={`${cohort} flights`} value={levers.multipliers[cohort] * 100}
-                  min={0} max={150} suffix="% of today"
-                  onChange={v => set('multipliers', { ...levers.multipliers, [cohort]: v / 100 })} />
-        )) : <>
-          <section className="pillar">
-            <h3><span>1</span>Cut back the doubled routes</h3>
-            <p>10 routes, back toward pre-expansion frequency.</p>
-            <Slider label="Tranches applied" value={Math.min(levers.tranche, 3)} min={0} max={3} suffix=""
-                    onChange={v => set('tranche', levers.tranche >= 4 && v === 3 ? 4 : v)} />
-            <Slider label="Toward target frequency" value={levers.phase * 100} min={0} max={100} suffix="%"
-                    onChange={v => set('phase', v / 100)} />
-            <div className="leverGroup">
-              <span className="leverLabel">Revenue lost per flight cut</span>
-              <div className="filterrow">
-                {Object.entries(presets.rhoDown).map(([name, value]) => (
-                  <button key={name} className={`pill ${levers.rhoDown === value ? 'active' : ''}`}
-                          onClick={() => set('rhoDown', value as number)}>{name}</button>
-                ))}
-              </div>
-              <Slider label="" value={levers.rhoDown * 100} min={0} max={100} step={0.1} suffix="%"
-                      onChange={v => set('rhoDown', v / 100)} />
-            </div>
-            <Slider label="Crew cost shed" value={levers.crewShed * 100} min={0} max={100} suffix="%"
-                    onChange={v => set('crewShed', v / 100)} />
-          </section>
-
-          <section className="pillar">
-            <h3><span>2</span>Raise fares on the stable routes</h3>
-            <p>38 stable routes. Cost pass-through is {presets.costPassThroughFarePct}%.</p>
-            <Slider label="Fare change" value={levers.farePct} min={0} max={15} suffix="%" step={0.05}
-                    onChange={v => set('farePct', v)} />
-            <Slider label="Elasticity (assumed)" value={levers.elasticity * 100} min={-150} max={0} suffix=""
-                    onChange={v => set('elasticity', v / 100)} format={v => (v / 100).toFixed(2)} />
-          </section>
-
-          <section className="pillar">
-            <h3><span>3</span>Fewer flights on the new routes</h3>
-            <p>London and Moncton re-cut, Ottawa–Montréal exited.</p>
-            <label className="toggle">
-              <input type="checkbox" checked={levers.tranche >= 4} disabled={levers.tranche < 3}
-                     onChange={e => set('tranche', e.target.checked ? 4 : 3)} />
-              <span>Apply{levers.tranche < 3 ? ' (after tranche 3)' : ''}</span>
-            </label>
-          </section>
-
-          <section className="pillar">
-            <h3><span>4</span>Hand back the idle gates</h3>
-            <p>Halifax A3 and Ottawa A2 carry no route.</p>
-            <label className="toggle">
-              <input type="checkbox" checked={levers.releaseIdleGates}
-                     onChange={e => set('releaseIdleGates', e.target.checked)} />
-              <span>Release them (−{money(constants.idleGatesReleasable)})</span>
-            </label>
-            <label className="toggle">
-              <input type="checkbox" checked={levers.gates === 'forecast'}
-                     onChange={e => set('gates', e.target.checked ? 'forecast' : 'actual')} />
-              <span>2026-27 gate forecast</span>
-            </label>
-          </section>
-
-          <section className="pillar quiet">
-            <h3><span>5–6</span>Seasonality</h3>
-            <p>
-              St John&apos;s holds 87% of its summer schedule through winter; the network
-              flies 28% less. <b>Not modelled</b> — the plan works on annual frequency.
-            </p>
-            <label className="toggle">
-              <input type="checkbox" checked={levers.seasonal}
-                     onChange={e => set('seasonal', e.target.checked)} />
-              <span>Seasonal baseline on Restore (×{constants.seasonalFactor})</span>
-            </label>
-          </section>
-
-          <div className="leverGroup">
-            <Slider label="Sustainable target margin" value={levers.targetMarginPct} min={0} max={10} suffix="%" step={0.1}
-                    onChange={v => set('targetMarginPct', v)} />
-          </div>
-        </>}
-      </aside>
-    <div className="panel mapPanel">
-      <div className="sectionhead">
-        <span>Where the flights go</span>
-        <small>Flights per month · the twelve months ahead</small>
-      </div>
-      <NetworkMap forecast={forecast} todayProfit={today.profit} selected={step} onSelect={setStep}
-                  playing={playing} onTogglePlay={() => setPlaying(p => !p)} />
-    </div>
-
-    </div>}
-
-    {tab === 'data' && <div className="nbMain dataView viewFade" key="data">
-      <div className="panel">
-          <div className="sectionhead"><span>From today to this scenario</span>
-            <small>PROFIT AFTER GATES</small></div>
-          <Waterfall start={today.profit} end={result.profit} steps={steps} />
-      </div>
-
-        <div className="panel readouts">
-          <div className="sectionhead"><span>Readouts</span></div>
-          <div className="readoutGrid">
-            <div>
-              <small>Protect fare rise to break even</small>
-              <b>{result.gapToBreakeven <= 0 ? 'already there'
-                : fareForBreakeven === null ? 'not reachable by fares alone'
-                : `${fareForBreakeven.toFixed(2)}%`}</b>
-              <span>on {money(protectTicketRevenue)} of stable ticket revenue</span>
-            </div>
-            <div>
-              <small>Protect fare rise to hit target</small>
-              <b>{result.gapToTarget <= 0 ? 'already there'
-                : fareForTarget === null ? 'not reachable by fares alone'
-                : `${fareForTarget.toFixed(2)}%`}</b>
-              <span>target {money(result.target)} = {levers.targetMarginPct.toFixed(1)}% of today&apos;s revenue</span>
-            </div>
-            <div>
-              <small>Breakeven revenue response</small>
-              <b>{breakevenRho === null ? (result.profit >= 0 ? 'holds at any ρ' : 'never breaks even')
-                : `ρ = ${breakevenRho.toFixed(2)}`}</b>
-              <span>{breakevenRho === null ? 'within the 0–1 range'
-                : `profit stays positive while under ${(breakevenRho * 100).toFixed(0)}% of flights cut flows through to revenue`}</span>
-            </div>
-            <div>
-              <small>Routes below break-even fill</small>
-              <b className={underFilled > 0 ? 'neg' : 'pos'}>{underFilled} of {result.byRoute.filter(r => r.flights > 0).length}</b>
-              <span>tickets per flight under cost per flight ÷ average fare</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="sectionhead"><span>By cohort</span><small>TODAY → SCENARIO</small></div>
-          <div className="tableWrap">
-          <table className="nbTable">
-            <thead><tr><th>Cohort</th><th>Routes</th><th>Flights</th><th>Revenue</th><th>Cost</th><th>Contribution</th></tr></thead>
-            <tbody>
-              {COHORTS.map(cohort => {
-                const now = today.byCohort[cohort], next = result.byCohort[cohort];
-                const n = routes.filter(r => r.Cohort === cohort).length;
-                return <tr key={cohort}>
-                  <td><b>{cohort}</b></td>
-                  <td>{n}</td>
-                  <td>{count(now.flights)} → <b>{count(next.flights)}</b></td>
-                  <td>{money(now.revenue)} → <b>{money(next.revenue)}</b></td>
-                  <td>{money(now.cost)} → <b>{money(next.cost)}</b></td>
-                  <td className={sign(next.contribution)}>
-                    {money(now.contribution)} → <b>{money(next.contribution)}</b></td>
-                </tr>;
-              })}
-            </tbody>
-          </table>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="sectionhead"><span>Ten worst routes</span><small>CONTRIBUTION</small></div>
-          <div className="bars">
-            {worst.map(r => {
-              const now = today.byRoute.find(t => t.route.Route === r.route.Route)!;
-              return <div key={r.route.Route} className="barRow">
-                <span className="barLabel" title={`${r.route.Dep} → ${r.route.Arr}`}>{r.route.Route}</span>
-                <span className="barTrack">
-                  <i className={`bar ghost ${sign(now.contribution)}`}
-                     style={{ width: `${Math.abs(now.contribution) / worstScale * 100}%` }} />
-                  <i className={`bar ${r.route.Cohort.toLowerCase()} ${sign(r.contribution)}`}
-                     style={{ width: `${Math.abs(r.contribution) / worstScale * 100}%` }} />
-                </span>
-                <span className={`barValue ${sign(r.contribution)}`}>{money(r.contribution)}</span>
-              </div>;
-            })}
-          </div>
-          <p className="legend">Pale bar is today, solid bar is the scenario. Colour marks the cohort:
-            <i className="chip restore" /> Restore <i className="chip decide" /> Decide <i className="chip protect" /> Protect
-          </p>
-        </div>
-
-        <div className="panel">
-          <div className="sectionhead"><span>Every route</span>
-            <div className="filterrow">
-              {(['All', ...COHORTS] as const).map(c => (
-                <button key={c} className={`pill ${cohortFilter === c ? 'active' : ''}`}
-                        onClick={() => setCohortFilter(c)}>{c}</button>
-              ))}
-            </div>
-          </div>
-          <div className="tableScroll">
-            <table className="nbTable routeTable">
-              <thead><tr>
-                <th>Route</th><th>Cohort</th><th>Tr.</th>
-                <th {...sortProps('flights')}>Flights{arrow('flights')}</th>
-                <th>Revenue</th><th>Cost</th>
-                <th {...sortProps('contribution')}>Contribution{arrow('contribution')}</th>
-                <th {...sortProps('delta')}>Change{arrow('delta')}</th>
-                <th>Fill</th>
-              </tr></thead>
-              <tbody>
-                {tableRows.map(r => {
-                  const delta = r.contribution - r.todayRow.contribution;
-                  return <tr key={r.route.Route}>
-                    <td title={`${r.route.Dep} → ${r.route.Arr}`}><b>{r.route.Route}</b></td>
-                    <td><i className={`chip ${r.route.Cohort.toLowerCase()}`} />{r.route.Cohort}</td>
-                    <td>{r.route.Tranche || '—'}</td>
-                    <td>{count(r.todayRow.flights)} → <b>{count(r.flights)}</b></td>
-                    <td>{money(r.revenue + r.fareGain)}</td>
-                    <td>{money(r.cost)}</td>
-                    <td className={sign(r.contribution)}>{money(r.contribution)}</td>
-                    <td className={sign(delta)}>{delta === 0 ? '—' : money(delta)}</td>
-                    <td className={r.underFilled ? 'neg' : ''}>
-                      {r.flights === 0 ? 'exited'
-                        : `${r.ticketsPerFlight.toFixed(1)} / ${r.breakEvenTicketsPerFlight.toFixed(1)}`}
-                    </td>
-                  </tr>;
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-    <div className="assumptions">
-      <b>What is assumption, not measurement.</b>
-      <ul>
-        <li>ρ (revenue response), the fare elasticity and the {levers.targetMarginPct.toFixed(1)}% sustainable target are our assumptions. The target is NorthByte&apos;s own pre-expansion margin after gates.</li>
-        <li>No price response is measurable in the data: there is no price variation to measure it from.</li>
-        <li>Aircraft lease costs are not in the data and are not modelled. Crew shed at 100% assumes redeployment and no severance.</li>
-        <li>One ticket is treated as one passenger. Seat counts are absent, so load factor is never shown — fill is tickets per flight against the break-even count.</li>
-        <li>Every profit figure restates FY25-26 at the chosen frequency: one year re-run, not a run rate. Nothing compounds and no second year is projected.</li>
-        <li>These are scenarios, not forecasts, and nothing here establishes causation.</li>
-      </ul>
-    </div>
-    </div>}
-
-    <div className="colophon">
-      <span>BOLT UBC First Byte 2026 · NorthByte Airlines · FY25-26 (1 Sep 2025 – 31 Aug 2026)</span>
-      <span>54 routes · 15,729 flights · all amounts in Canadian dollars</span>
-    </div>
-  </section>;
-}
-
-function Kpi({ label, value, format, today, tone = '', wide = false }:
-             { label: string; value: number; format: (v: number) => string;
-               today: string; tone?: string; wide?: boolean }) {
-  return <div className={`kpi ${wide ? 'wide' : ''}`}>
-    <small>{label}</small>
-    <b className={tone}><Figure value={value} format={format} /></b>
-    <span>today {today}</span>
-  </div>;
-}
-
-function Waterfall({ start, end, steps }:
-                   { start: number; end: number; steps: { label: string; value: number }[] }) {
-  type Point = { label: string; value: number; running: number; kind: 'anchor' | 'step' };
-  const points: Point[] = [{ label: 'Today', value: start, running: start, kind: 'anchor' }];
-  let running = start;
-  for (const step of steps) {
-    running += step.value;
-    points.push({ label: step.label, value: step.value, running, kind: 'step' });
-  }
-  points.push({ label: 'Scenario', value: end, running: end, kind: 'anchor' });
-  const scale = Math.max(...points.map(p => Math.abs(p.running)), Math.max(...steps.map(s => Math.abs(s.value)), 1));
-
-  return <div className="waterfall">
-    {points.map((point, index) => (
-      <div key={`${point.label}-${index}`} className={`wfRow ${point.kind}`}>
-        <span className="wfLabel">{point.label}</span>
-        <span className="wfTrack">
-          <i className={`wfBar ${point.kind === 'anchor' ? 'anchor' : sign(point.value)}`}
-             style={{ width: `${Math.abs(point.kind === 'anchor' ? point.running : point.value) / scale * 100}%` }} />
-        </span>
-        <span className={`wfValue ${sign(point.kind === 'anchor' ? point.running : point.value)}`}>
-          {point.kind === 'step' && point.value > 0 ? '+' : ''}{money(point.kind === 'anchor' ? point.running : point.value)}
-        </span>
-        {point.kind === 'step' && <span className="wfRunning">{money(point.running)}</span>}
-      </div>
-    ))}
-  </div>;
-}
-
-function Slider({ label, value, min, max, suffix, step = 1, onChange, format }:
-                { label: string; value: number; min: number; max: number; suffix: string;
-                  step?: number; onChange: (v: number) => void; format?: (v: number) => string }) {
-  const progress = ((value - min) / (max - min)) * 100;
-  const shown = format ? format(value) : `${Number(value.toFixed(2))}${suffix}`;
-  return <label className="slider">
-    {label && <span>{label}<b>{shown}</b></span>}
-    <input aria-label={label || 'value'} type="range" min={min} max={max} step={step} value={value}
-           style={{ background: `linear-gradient(90deg, var(--ink) ${progress}%, var(--line) ${progress}%)` }}
-           onChange={e => onChange(Number(e.target.value))} />
-  </label>;
+  </TweenSpeed.Provider>;
 }

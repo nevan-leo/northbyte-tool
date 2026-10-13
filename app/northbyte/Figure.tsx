@@ -1,19 +1,28 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 /**
  * A number that moves to its new value instead of jumping. Every figure in the
  * tool recomputes on every lever change, and a column of digits snapping at
  * once reads as a glitch; easing it reads as the model responding.
  */
-export function useTween(value: number, ms = 420) {
+/**
+ * How long a figure takes to reach its new value. Dropped to ~100ms while a
+ * slider is being dragged, so the numbers keep up with the hand, and back to
+ * 420ms otherwise, where the easing is doing the reading.
+ */
+export const TweenSpeed = createContext(420);
+
+export function useTween(value: number, override?: number) {
+  const ms = useContext(TweenSpeed) ?? 420;
   const [shown, setShown] = useState(value);
   const current = useRef(value);
 
   useEffect(() => { current.current = shown; }, [shown]);
 
   useEffect(() => {
+    const duration = override ?? ms;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setShown(value);
       return;
@@ -22,13 +31,13 @@ export function useTween(value: number, ms = 420) {
     if (from === value) return;
     const started = performance.now();
     let frame = requestAnimationFrame(function step(now) {
-      const t = Math.min(1, (now - started) / ms);
+      const t = Math.min(1, (now - started) / duration);
       const eased = 1 - Math.pow(1 - t, 3);          // ease-out, no overshoot
       setShown(from + (value - from) * eased);
       if (t < 1) frame = requestAnimationFrame(step);
     });
     return () => cancelAnimationFrame(frame);
-  }, [value, ms]);
+  }, [value, ms, override]);
 
   return shown;
 }

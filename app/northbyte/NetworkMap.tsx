@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2, Pause, Play, ZoomIn, ZoomOut } from 'lucide-react';
 import map from '../data/northbyte-map.json';
 import { routes, type Route } from './model';
@@ -31,6 +31,10 @@ const COHORT_DASH: Partial<Record<Route['Cohort'], string>> = { Decide: '5 4' };
 const COHORT_OPACITY: Record<Route['Cohort'], number> = {
   Restore: 0.85, Decide: 0.95, Protect: 0.16,
 };
+// A fare rise is invisible on a map of flights, so the stable routes come
+// forward as the fares lever earns: 0.16 at nothing, 0.5 at $8M.
+const PROTECT_OPACITY_AT_FULL_FARES = 0.5;
+const FARE_GAIN_FOR_FULL = 8_000_000;
 const COHORT_WEIGHT: Record<Route['Cohort'], number> = {
   Restore: 1.6, Decide: 1.6, Protect: 0.9,
 };
@@ -76,10 +80,11 @@ export type ForecastStep = {
 };
 
 export default function NetworkMap({
-  forecast, todayProfit, selected, onSelect, playing, onTogglePlay,
+  forecast, todayProfit, fareGain, selected, onSelect, playing, onTogglePlay,
 }: {
   forecast: ForecastStep[];           // annual flights per route, month by month
   todayProfit: number;                // profit after gates as things stand
+  fareGain: number;                   // what the fare lever is winning, in dollars
   selected: number;                   // 0 = today, 1..n = months ahead
   onSelect: (index: number) => void;
   playing: boolean;
@@ -191,11 +196,13 @@ export default function NetworkMap({
            onPointerUp={endDrag} onPointerLeave={endDrag}
            role="img"
            aria-label={`NorthByte network, ${isForecast ? `forecast ${step.label}` : `last month flown, ${monthLabel(months[nowIndex])}`}: ${Math.round(total)} flights in the month`}>
-        {(map.neighbours as string[]).map((d, i) => <path key={`n${i}`} d={d} className="mapNeighbour" />)}
-        {LAND.map((shape, i) => <path key={`l${i}`} d={shape.d} className="mapLand" />)}
-        {(map.lakes as string[]).map((d, i) => <path key={`w${i}`} d={d} className="mapWater" />)}
+        <Basemap />
 
         {drawn.map(({ route, geometry, flightsPerMonth }) => {
+          const opacity = route.Cohort === 'Protect'
+            ? COHORT_OPACITY.Protect + (PROTECT_OPACITY_AT_FULL_FARES - COHORT_OPACITY.Protect)
+              * Math.min(1, Math.max(0, fareGain / FARE_GAIN_FOR_FULL))
+            : COHORT_OPACITY[route.Cohort];
           const d = `M${geometry!.x1} ${geometry!.y1}Q${geometry!.cx} ${geometry!.cy} ${geometry!.x2} ${geometry!.y2}`;
           const width = (0.5 + (flightsPerMonth / BUSIEST_EVER) * 2.2) * k * COHORT_WEIGHT[route.Cohort];
           const dash = COHORT_DASH[route.Cohort];
@@ -206,7 +213,7 @@ export default function NetworkMap({
                            strokeOpacity={0.45} />}
             <path d={d} fill="none" stroke={COHORT_COLOUR[route.Cohort]} strokeWidth={width}
                   strokeDasharray={dash ? dash.split(' ').map(n => Number(n) * k).join(' ') : undefined}
-                  strokeOpacity={COHORT_OPACITY[route.Cohort]} />
+                  strokeOpacity={opacity} />
           </g>;
         })}
 
@@ -255,12 +262,23 @@ export default function NetworkMap({
       <i className="rule restore" /> Restore <small>10 routes, the loss</small>
       <i className="rule decide" /> Decide <small>6, re-cut or exited</small>
       <i className="rule protect" /> Protect <small>38, held flat</small>
+      {fareGain > 50_000 &&
+        <span className="fareChip">+${(fareGain / 1_000_000).toFixed(1)}M from fares</span>}
       <span className="legendNote">
         One aircraft stands for about {Math.round(FLIGHTS_PER_PLANE)} flights a month.
       </span>
     </p>
   </div>;
 }
+
+/** Geography, memoised once: no lever can change the coastline. */
+const Basemap = memo(function Basemap() {
+  return <g>
+    {(map.neighbours as string[]).map((d, i) => <path key={`n${i}`} d={d} className="mapNeighbour" />)}
+    {LAND.map((shape, i) => <path key={`l${i}`} d={shape.d} className="mapLand" />)}
+    {(map.lakes as string[]).map((d, i) => <path key={`w${i}`} d={d} className="mapWater" />)}
+  </g>;
+});
 
 type Drawn = { route: Route; geometry: Geometry | null; flightsPerMonth: number };
 
