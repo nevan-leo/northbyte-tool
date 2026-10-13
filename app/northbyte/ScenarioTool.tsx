@@ -101,7 +101,7 @@ export default function ScenarioTool() {
         // year, and the profit walks toward what that costs.
         const scale = 1 + drift.flightsGrowth * through;
         return {
-          label, tranche: 0,
+          label, month: month.getMonth(), tranche: 0,
           profit: today.profit + (nothing.expanding - today.profit) * through,
           flights: Object.fromEntries(
             scenario(TODAY_LEVERS).byRoute.map(r => [r.route.Route, r.flights * scale])),
@@ -111,7 +111,7 @@ export default function ScenarioTool() {
       const tranche = Math.min(levers.tranche, Math.floor(i / 3) + 1);
       const projection = scenario({ ...levers, tranche });
       return {
-        label, tranche,
+        label, month: month.getMonth(), tranche,
         profit: projection.profit,
         flights: Object.fromEntries(projection.byRoute.map(r => [r.route.Route, r.flights])),
       };
@@ -186,10 +186,9 @@ export default function ScenarioTool() {
              onPointerUp={() => setBusy(false)}
              onPointerCancel={() => setBusy(false)}>
           <LeverPanel levers={levers} set={set} result={result}
-                      onToday={() => glideTo(TODAY)}
                       onNothing={() => { glideTo(TODAY, 900, true); setStep(FORECAST_MONTHS); }}
                       onPlan={() => glideTo(PLAN)}
-                      drifting={drifting} animating={busy} />
+                      drifting={drifting} atPlan={atPlan && !drifting} animating={busy} />
         </div>
 
         <div className="panel mapPanel">

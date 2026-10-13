@@ -44,15 +44,15 @@ export const ELASTICITIES = [
   { value: -1.54, name: 'Route level', note: 'IATA/InterVISTAS, illustrative' },
 ] as const;
 
-export default function LeverPanel({ levers, set, result, onToday, onNothing, onPlan,
-                                     drifting, animating }: {
+export default function LeverPanel({ levers, set, result, onNothing, onPlan,
+                                     drifting, atPlan, animating }: {
   levers: Levers;
   set: <K extends keyof Levers>(key: K, value: Levers[K]) => void;
   result: Scenario;
-  onToday: () => void;
   onNothing: () => void;
   onPlan: () => void;
   drifting: boolean;
+  atPlan: boolean;
   animating: boolean;
 }) {
   const flightsOf = (code: string) =>
@@ -104,9 +104,8 @@ export default function LeverPanel({ levers, set, result, onToday, onNothing, on
     <div className="sectionhead"><span>Our four solutions</span></div>
 
     <div className="filterrow stateButtons">
-      <button className="pill" onClick={onToday}>Today</button>
       <button className={`pill ${drifting ? 'active' : ''}`} onClick={onNothing}>Do nothing</button>
-      <button className="pill" onClick={onPlan}>Our plan</button>
+      <button className={`pill ${atPlan ? 'active' : ''}`} onClick={onPlan}>Our plan</button>
     </div>
 
     <Solution n={1} title="Roll back the doubled routes"

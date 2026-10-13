@@ -77,8 +77,23 @@ const BASE: Box = (() => {
 const MAX_ZOOM = 8;
 
 export type ForecastStep = {
-  label: string; tranche: number; profit: number; flights: Record<string, number>;
+  label: string; month: number; tranche: number; profit: number;
+  flights: Record<string, number>;      // annual flights per route
 };
+
+// A year's flights do not fall evenly across its months: August flew 1,474 and
+// February 1,103. Spreading an annual figure flat made every forecast month
+// look like a cut against a summer month that was simply busier, so each route
+// carries its own share of the year, measured from FY25-26.
+const FY = 12;                                    // the second year in the data
+const SEASONAL_SHARE: Record<string, number[]> = Object.fromEntries(
+  Object.entries(MONTHLY).map(([route, counts]) => {
+    const year = counts.slice(FY);
+    const total = year.reduce((a, v) => a + v, 0);
+    return [route, year.map(v => (total > 0 ? v / total : 1 / 12))];
+  }));
+// Calendar month (0 = January) to its place in a fiscal year that starts in September.
+const FISCAL_SLOT = (month: number) => (month + 12 - 8) % 12;
 
 export default function NetworkMap({
   forecast, todayProfit, fareGain, selected, onSelect, playing, onTogglePlay,
@@ -172,7 +187,8 @@ export default function NetworkMap({
     route,
     geometry: geometryFor(route),
     flightsPerMonth: isForecast
-      ? (step?.flights[route.Route] ?? 0) / 12
+      ? (step?.flights[route.Route] ?? 0)
+        * (SEASONAL_SHARE[route.Route]?.[FISCAL_SLOT(step.month)] ?? 1 / 12)
       : (MONTHLY[route.Route]?.[nowIndex] ?? 0),
   })).filter(r => r.geometry && r.flightsPerMonth > 0), [isForecast, step, nowIndex]);
 
@@ -184,6 +200,10 @@ export default function NetworkMap({
   // the only fair yardstick for where the airline stands today.
   const preExpansion = totals.slice(0, 6).reduce((a, v) => a + v, 0) / 6;
   const change = preExpansion > 0 ? Math.round((total / preExpansion - 1) * 100) : 0;
+  // The same calendar month a year earlier, so August is judged against August.
+  const sameMonthLastYear = isForecast ? totals[FY + FISCAL_SLOT(step.month)] : 0;
+  const sameMonthChange = sameMonthLastYear > 0
+    ? Math.round((total / sameMonthLastYear - 1) * 100) : 0;
   // What the plan is for: a cut in flights is the means, the profit it recovers
   // is the point. The model restates FY25-26 at the chosen frequency, so this is
   // one year re-run, not a run rate and not something that compounds.
@@ -246,8 +266,14 @@ export default function NetworkMap({
         <small>{isForecast ? `Forecast · ${step.label}` : `Last month flown · ${monthLabel(months[nowIndex])}`}</small>
         <b><Figure value={total} format={v => Math.round(v).toLocaleString('en-US')} /></b>
         <span>flights in the month</span>
-        {/* Against the busiest month flown, so the size of the cut is legible
-            without clicking back and forth. */}
+        {/* Judged against the same month a year earlier, so August is not made to
+            look like a cut simply for being compared with February. */}
+        {isForecast && <span className="mapSame">
+          {sameMonthChange === 0
+            ? 'level with'
+            : `${sameMonthChange > 0 ? '+' : '−'}${Math.abs(sameMonthChange)}% on`}
+          {' '}the same month last year
+        </span>}
         <span className={`mapDelta ${isForecast && recovered > 0 ? 'up' : ''}`}>
           {isForecast
             ? <><Figure value={recovered} format={signed} /> if this frequency held for a full year</>

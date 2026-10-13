@@ -452,3 +452,4 @@ button { cursor:pointer; }
 .recipeBar i.neg { background:var(--clay); }
 .recipeLabel { color:var(--ink-2); }
 .recipe b { text-align:right; font-family:var(--font-geist-mono),monospace; font-variant-numeric:tabular-nums; }
+.mapSame { display:block; font-size:var(--t-small); color:var(--ink-3); margin-top:var(--s1); }
