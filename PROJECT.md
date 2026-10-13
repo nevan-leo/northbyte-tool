@@ -195,6 +195,8 @@ interface computes nothing of its own; every figure comes out of `scenario()`.
 | --- | --- | --- | --- |
 | Mode | preset / manual | preset | Manual uses a flights multiplier per cohort |
 | Phase | 0–100% | 100% | Interpolates flights from today to the plan target |
+| restoreLevel | 0–1 | 1 | The rollback on its own; multiplied by phase |
+| decideLevel | 0–2 | 1 | The new routes on their own; 1 is the plan, 2 every route exited |
 | Tranche | 0–4 | 4 | Only routes with `Tranche ≤ n` move |
 | Cohort multiplier (manual) | 0–150% | 100% | Applied to today's flights |
 | ρ_down | 0–1 | 0.19 | Revenue lost per flight cut. Presets High 0.046 · Mid 0.19 · Low 1.0 |
@@ -257,7 +259,11 @@ compounds, and no second year is projected**. The map readout says so in words:
 
 ## 6. Acceptance tests
 
-21 tests from section 7 of the brief, tolerance ±$0.05M, all passing.
+28 tests, tolerance ±$0.05M, all passing: the 21 from section 7 of the brief,
+plus seven for the per-solution levels — both levels at 1 landing on the full
+plan under all three demand scenarios, both at 0 landing on today to the dollar
+and on 15,729 flights, and profit monotonic in each level including past the
+plan.
 
 | Test | Got | Want |
 | --- | --- | --- |
@@ -342,7 +348,14 @@ frequency.
 - Heading comes from the derivative of the quadratic Bézier; the glyph is
   nose-up, so the rotation is heading + 90°.
 
-### 8.3 Reading the map
+### 8.3 The fares cue
+
+Aircraft cannot show a price, so the fare lever lifts the stable network out of
+the background instead: Protect arc opacity rises from 0.16 at no fare rise to
+0.37 at the plan and 0.45 at the slider's end, and a "+$X.XM from fares" chip
+appears in the legend.
+
+### 8.4 Reading the map
 
 - Arc geometry: quadratic Bézier with a perpendicular bow (16% of length, capped
   at 70 units) so the two directions of a route stay apart.
@@ -357,12 +370,14 @@ frequency.
 - **Symbols scale against the frame**, so aircraft, dots, labels and line weights
   hold their size on screen at any zoom.
 
-### 8.4 The timeline
+### 8.5 The timeline
 
 - The first column is the **last month actually flown — Aug 2026**, when the
   fiscal year closed. Its figure is real, counted from the cost file.
-- The twelve columns after it run **forward from the month after the current
-  one**, reading the clock rather than counting on from the end of the data.
+- The twelve columns after it run **forward from November 2026**, pinned to a
+  constant so a screenshot taken in any month shows the months the deck shows.
+- The map opens on the end of the forecast, because that is the state the levers
+  describe; the month actually flown is the first column, one click away.
 - **One tranche lands a quarter**, capped by the tranche the levers allow, with
   T1–T4 marked on the axis. The forecast is the model on a calendar, not a
   separate assumption: each month asks `scenario()` for the tranches applied by

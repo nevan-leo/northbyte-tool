@@ -31,7 +31,10 @@ const FORECAST_START = new Date(2026, 10);        // November 2026
 export default function ScenarioTool() {
   const [levers, setLevers] = useState<Levers>(PLAN);
   const [tab, setTab] = useState<'map' | 'evidence'>('map');
-  const [step, setStep] = useState(0);
+  // The map opens on the end of the forecast, because that is the state the
+  // levers describe; the month actually flown is the first column, one click
+  // away, and the readout compares against it.
+  const [step, setStep] = useState(FORECAST_MONTHS);
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);          // dragging, or animating to a state
   const animation = useRef<number | undefined>(undefined);
