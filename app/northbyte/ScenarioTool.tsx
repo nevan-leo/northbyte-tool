@@ -7,7 +7,7 @@ import LeverPanel from './Levers';
 import EvidenceView from './EvidenceView';
 import { Figure, TweenSpeed } from './Figure';
 import {
-  scenario, presets, DEFAULT_LEVERS, TODAY_LEVERS, type Levers,
+  scenario, doNothing, drift, presets, DEFAULT_LEVERS, TODAY_LEVERS, type Levers,
 } from './model';
 
 const M = 1_000_000;
@@ -79,6 +79,7 @@ export default function ScenarioTool() {
   useEffect(() => () => { if (animation.current) cancelAnimationFrame(animation.current); }, []);
 
   const today = useMemo(() => scenario(TODAY_LEVERS), []);
+  const nothing = useMemo(() => doNothing(), []);
   const result = useMemo(() => scenario(levers), [levers]);
 
   // One tranche lands a quarter, never past what the levers allow, so the
@@ -148,6 +149,14 @@ export default function ScenarioTool() {
           <span>today {money(Math.max(0, -today.profit))}</span>
         </div>
       </div>
+
+      <p className="doNothing">
+        <b>Do nothing</b> and FY26-27 is {money(nothing.held)}: cost per flight rose
+        {' '}{(drift.costPerFlightGrowth * 100).toFixed(1)}% between the two years in the data
+        while the average fare moved {(drift.fareGrowth * 100).toFixed(1)}%. Carry on
+        expanding at last year&apos;s pace and it is {money(nothing.expanding)}.
+        <small>Two observed years extrapolated, not a forecast of demand.</small>
+      </p>
 
       {tab === 'map' && <div className="scenarioGrid viewFade" key="map">
         <div onPointerDown={() => setBusy(true)}

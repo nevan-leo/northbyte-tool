@@ -31,6 +31,15 @@ payload = {
     "source": "FirstByte 2026 / NorthByte Airlines, FY25-26",
     "currency": "CAD",
     "routes": routes,
+    # Measured year over year from the raw workbooks, FY24-25 against FY25-26,
+    # by db/50_firstbyte_checks.sql. These drive the "do nothing" projection.
+    "drift": {
+        "flightsGrowth": 0.2033,        # 13,072 -> 15,729 flights
+        "costGrowth": 0.2352,           # $192.99M -> $238.38M
+        "costPerFlightGrowth": 0.0266,  # $14,763 -> $15,155 a flight
+        "revenueGrowth": 0.0514,        # $177.83M -> $186.97M on dated rows
+        "fareGrowth": 0.0031,           # $1,029.51 -> $1,032.75 a ticket
+    },
     # Network constants from the build brief, editable in the UI.
     "constants": {
         "gatesActual": 10_023_126,

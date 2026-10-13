@@ -2,8 +2,8 @@
 
 import { useMemo } from 'react';
 import {
-  scenario, routes, constants, presets, COHORTS,
-  type Levers, type Scenario,
+  scenario, ceiling, routes, constants, presets, COHORTS, requiredFarePct,
+  protectTicketRevenue, type Levers, type Scenario,
 } from './model';
 
 // The four solutions from the deck, each labelled in the unit the airline
@@ -89,6 +89,9 @@ export default function LeverPanel({ levers, set, result, onToday, onPlan, anima
                low: 0, high: 0 },
     };
   }, [levers]);
+
+  const best = useMemo(() => ceiling(levers, FARE_EVIDENCE_CEILING), [levers]);
+  const fareToBreakeven = requiredFarePct(result.gapToBreakeven, levers.elasticity, protectTicketRevenue);
 
   const axis = Math.max(1, ...Object.values(impacts)
     .flatMap(i => [Math.abs(i.value), Math.abs(i.low), Math.abs(i.high)]));
@@ -217,6 +220,32 @@ export default function LeverPanel({ levers, set, result, onToday, onPlan, anima
       Each bar is that lever measured on its own, so they will not sum exactly to
       the total.
     </p>
+
+    <section className="lands">
+      <div className="sectionhead"><span>Where this lands</span></div>
+      <p className="landsNow">
+        <b className={result.profit < 0 ? 'neg' : 'pos'}>{money(result.profit)}</b>
+        {result.profit < 0
+          ? <> · {money(-result.profit)} short of break even</>
+          : <> · {money(result.profit)} clear of break even</>}
+      </p>
+      <p className="note">
+        {fareToBreakeven === null
+          ? 'Fares cannot close the rest on their own at this price response.'
+          : result.gapToBreakeven > 0.05 * M
+            ? <>A further {fareToBreakeven.toFixed(1)}% on the stable fares would close it
+                {fareToBreakeven > FARE_EVIDENCE_CEILING ? ', which is beyond what the data shows.' : '.'}</>
+            : 'Break even is already covered.'}
+      </p>
+      <p className="note">
+        The most these four can do, with every new route exited and fares at the
+        {' '}{FARE_EVIDENCE_CEILING}% the data supports: <b>{money(best.profit)}</b>.
+        {best.short > 0.05 * M
+          ? <> Still {money(best.short)} short of the {(constants.targetMarginPct).toFixed(1)}% sustainable
+              target, which has to come from the second wave rather than from these levers.</>
+          : <> That clears the {(constants.targetMarginPct).toFixed(1)}% target.</>}
+      </p>
+    </section>
   </aside>;
 }
 

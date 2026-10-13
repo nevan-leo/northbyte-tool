@@ -8,6 +8,7 @@
 import {
   scenario, routes, presets, DEFAULT_LEVERS, TODAY_LEVERS, type Levers,
 } from '../app/northbyte/model';
+import { ceiling, doNothing } from '../app/northbyte/model';
 import { signed } from '../app/northbyte/format';
 
 const M = 1_000_000;
@@ -125,6 +126,39 @@ for (const [value, want] of formatting) {
   if (!ok) failures += 1;
   console.log(`${ok ? 'PASS' : 'FAIL'}  signed(${String(value).padEnd(12)}) -> ${got.padEnd(10)} want ${want}`);
 }
+
+
+// ------------------------------------- doing nothing, and the ceiling -------
+// "What if we carry on" is the first question anyone asks, and the answer is
+// not this year repeated: cost per flight rose while fares stood still.
+const nothing = doNothing();
+check('do nothing, flights held', nothing.held, -64.6 * M, 0.2 * M);
+check('do nothing, expansion continues', nothing.expanding, -105.1 * M, 0.3 * M);
+const doingNothingIsWorse = nothing.held < today.profit && nothing.expanding < nothing.held;
+if (!doingNothingIsWorse) failures += 1;
+console.log(`${doingNothingIsWorse ? 'PASS' : 'FAIL'}  doing nothing is worse than today, and expanding worse still`);
+
+// What the four levers top out at, which is the answer to "so what IS the plan".
+const atBase: Levers = { ...DEFAULT_LEVERS, phase: 1, tranche: 4, gates: 'forecast',
+                         releaseIdleGates: true, seasonal: true };
+for (const [name, rho] of [['High', presets.rhoDown.High], ['Mid', presets.rhoDown.Mid],
+                           ['Low', presets.rhoDown.Low]] as const) {
+  const best = ceiling({ ...atBase, rhoDown: rho }, 6.4);
+  console.log(`      ceiling at ${name.padEnd(5)} demand, no price response: ` +
+    `${(best.profit / M).toFixed(1)}M, ${(best.short / M).toFixed(1)}M short of target`);
+}
+const midCeiling = ceiling({ ...atBase, rhoDown: presets.rhoDown.Mid }, 6.4);
+check('ceiling at base demand clears break even', midCeiling.profit, 3.8 * M, 0.3 * M);
+const shortOfTarget = midCeiling.short > 0;
+if (!shortOfTarget) failures += 1;
+console.log(`${shortOfTarget ? 'PASS' : 'FAIL'}  the four levers alone do not reach the sustainable target`);
+
+// A fare rise only helps while demand does not answer back.
+const elastic = ceiling({ ...atBase, rhoDown: presets.rhoDown.Mid, elasticity: -0.88 }, 6.4);
+const faresBackfire = elastic.profit < midCeiling.profit;
+if (!faresBackfire) failures += 1;
+console.log(`${faresBackfire ? 'PASS' : 'FAIL'}  fares at the national elasticity give back ` +
+  `${((midCeiling.profit - elastic.profit) / M).toFixed(1)}M of the ceiling`);
 
 console.log(failures === 0
   ? '\nAll acceptance tests pass.'

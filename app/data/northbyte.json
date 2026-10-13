@@ -1677,6 +1677,13 @@
    "Exit": false
   }
  ],
+ "drift": {
+  "flightsGrowth": 0.2033,
+  "costGrowth": 0.2352,
+  "costPerFlightGrowth": 0.0266,
+  "revenueGrowth": 0.0514,
+  "fareGrowth": 0.0031
+ },
  "constants": {
   "gatesActual": 10023126,
   "gatesForecast": 10095839,

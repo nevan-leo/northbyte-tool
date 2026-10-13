@@ -42,3 +42,22 @@ UNION ALL
 SELECT 'flights Sep25-Aug26',
        (SELECT count(*) FROM (SELECT DISTINCT origin, destination, cost_ts FROM fb_cost
                                WHERE cost_ts >= '2025-09-01' AND cost_ts < '2026-09-01') b);
+
+\echo 'Year over year, FY24-25 against FY25-26. These rates drive the "do nothing"'
+\echo 'projection in the tool, and are what makes doing nothing cost money:'
+WITH flights AS (
+  SELECT CASE WHEN cost_ts >= '2024-09-01' AND cost_ts < '2025-09-01' THEN 'FY24-25'
+              WHEN cost_ts >= '2025-09-01' AND cost_ts < '2026-09-01' THEN 'FY25-26' END AS fy,
+         origin, destination, cost_ts, sum(amount) AS flight_cost
+    FROM fb_cost GROUP BY 1, 2, 3, 4),
+cost AS (
+  SELECT fy, count(*) AS flights, sum(flight_cost) AS total, avg(flight_cost) AS per_flight
+    FROM flights WHERE fy IS NOT NULL GROUP BY 1),
+revenue AS (
+  SELECT CASE WHEN txn_ts >= '2024-09-01' AND txn_ts < '2025-09-01' THEN 'FY24-25'
+              WHEN txn_ts >= '2025-09-01' AND txn_ts < '2026-09-01' THEN 'FY25-26' END AS fy,
+         sum(amount) AS net, avg(amount) FILTER (WHERE txn_type = 'Ticket') AS fare
+    FROM fb_transaction WHERE txn_ts IS NOT NULL GROUP BY 1)
+SELECT c.fy, c.flights, round(c.total / 1e6, 2) AS cost_m, round(c.per_flight) AS cost_per_flight,
+       round(r.net / 1e6, 2) AS net_rev_m, round(r.fare, 2) AS avg_fare
+FROM cost c JOIN revenue r USING (fy) WHERE c.fy IS NOT NULL ORDER BY 1;

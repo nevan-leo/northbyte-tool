@@ -22,6 +22,7 @@ export type Route = {
 export const routes = data.routes as Route[];
 export const constants = data.constants;
 export const presets = data.presets;
+export const drift = data.drift;
 export const COHORTS = ['Restore', 'Decide', 'Protect'] as const;
 export type Cohort = (typeof COHORTS)[number];
 
@@ -208,6 +209,43 @@ export function breakevenRhoDown(levers: Levers) {
   if (at0 === at1) return null;
   const rho = at0 / (at0 - at1);
   return rho >= 0 && rho <= 1 ? rho : null;
+}
+
+/**
+ * What FY26-27 looks like if nobody does anything.
+ *
+ * Doing nothing is not "this year again". Cost per flight rose 2.7% between the
+ * two years in the data, while the average fare moved 0.3%, so standing still
+ * costs money on its own. Two readings, both using rates measured from the raw
+ * workbooks rather than assumed:
+ *
+ *   held      flights stay where they are; costs drift, fares drift
+ *   expanding the expansion carries on at last year's pace
+ *
+ * This is an extrapolation of two observed years, not a forecast of demand.
+ */
+export function doNothing() {
+  const revenue = constants.netRevenueToday;
+  const cost = routes.reduce((a, r) => a + r.Cost, 0);
+  const gates = constants.gatesForecast;
+  return {
+    held: revenue * (1 + drift.fareGrowth) - cost * (1 + drift.costPerFlightGrowth) - gates,
+    expanding: revenue * (1 + drift.revenueGrowth) - cost * (1 + drift.costGrowth) - gates,
+  };
+}
+
+/**
+ * The most these four levers can do from where the sliders are, under the
+ * demand and price assumptions now selected: every flight lever at its end and
+ * fares at the top of what the data can speak to. If this is short of the
+ * target, the rest has to come from somewhere else, and the tool should say so.
+ */
+export function ceiling(levers: Levers, fareCeilingPct: number) {
+  const best = scenario({
+    ...levers, mode: 'preset', phase: 1, tranche: 4,
+    restoreLevel: 1, decideLevel: 2, farePct: fareCeilingPct, releaseIdleGates: true,
+  });
+  return { profit: best.profit, target: best.target, short: best.target - best.profit };
 }
 
 export const protectTicketRevenue = routes
