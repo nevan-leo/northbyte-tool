@@ -151,6 +151,13 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
+> **If the page loads but nothing on it works**, the production server is serving
+> HTML that points at JavaScript chunks a later `npm run build` has already
+> replaced, and the browser gets a 404 for them. Rebuild and restart in that
+> order (`pkill -f "vinext start"; npm run build && npm start`), then hard-reload
+> the browser. `npm run dev` does not have this failure mode.
+
+
 The page is the tool: no other views, no map, no server calls.
 
 ## Files
