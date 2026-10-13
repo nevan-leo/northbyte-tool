@@ -29,6 +29,12 @@ export type Levers = {
   mode: 'preset' | 'manual';
   phase: number;                               // 0..1, today -> plan target
   tranche: number;                             // only routes with Tranche <= n move
+  // Per-solution levels, so the two flight levers can be pulled independently
+  // of each other. 0 = today, 1 = the plan. decideLevel carries on past 1 toward
+  // zero flights, where 2 is every new route exited. phase multiplies both, so
+  // leaving these at 1 reproduces the phase/tranche behaviour the tests pin.
+  restoreLevel: number;
+  decideLevel: number;
   multipliers: Record<Cohort, number>;         // manual mode, 0..1.5 of today
   rhoDown: number;                             // revenue response when cutting
   rhoUp: number;                               // revenue response when adding
@@ -42,7 +48,7 @@ export type Levers = {
 };
 
 export const DEFAULT_LEVERS: Levers = {
-  mode: 'preset', phase: 1, tranche: 4,
+  mode: 'preset', phase: 1, tranche: 4, restoreLevel: 1, decideLevel: 1,
   multipliers: { Restore: 1, Decide: 1, Protect: 1 },
   rhoDown: presets.rhoDown.Mid, rhoUp: presets.rhoUp, crewShed: 1,
   farePct: 0, elasticity: 0, gates: 'actual', releaseIdleGates: false,
@@ -70,8 +76,14 @@ function fareUplift(farePct: number, elasticity: number) {
   return (1 + p) * (1 + elasticity * p) - 1;
 }
 
+/** How far this route's own solution has been pulled: 0 today, 1 the plan. */
+function levelFor(route: Route, levers: Levers) {
+  const own = route.Cohort === 'Restore' ? levers.restoreLevel
+    : route.Cohort === 'Decide' ? levers.decideLevel : 1;
+  return levers.phase * own;
+}
+
 function targetFlights(route: Route, levers: Levers) {
-  if (route.Exit && levers.tranche >= route.Tranche) return 0;
   if (levers.mode === 'manual') {
     return route.Flights_FY2526 * levers.multipliers[route.Cohort];
   }
@@ -79,7 +91,10 @@ function targetFlights(route: Route, levers: Levers) {
   // about 8% more in Mar-Aug, and the plan is set from a Sep-Feb window.
   const seasonal = levers.seasonal && route.Cohort === 'Restore' ? constants.seasonalFactor : 1;
   const plan = route.PlanFlights * seasonal;
-  return route.Flights_FY2526 + levers.phase * (plan - route.Flights_FY2526);
+  const level = levelFor(route, levers);
+  if (level <= 1) return route.Flights_FY2526 + level * (plan - route.Flights_FY2526);
+  // Past the plan there is nothing left to trim but the route itself.
+  return Math.max(0, plan * (2 - level));
 }
 
 export function scenario(levers: Levers): Scenario {
@@ -88,19 +103,36 @@ export function scenario(levers: Levers): Scenario {
     const today = route.Flights_FY2526;
     // A tranche that has not been applied yet leaves the route untouched.
     const moves = route.Tranche <= levers.tranche;
-    const exited = route.Exit && moves;
-    const flights = exited ? 0 : moves ? targetFlights(route, levers) : today;
+    const flights = moves ? targetFlights(route, levers) : today;
 
     const ratio = today > 0 ? flights / today : 0;
-    const rho = ratio < 1 ? levers.rhoDown : levers.rhoUp;
-    const revenue = exited ? 0 : route.NetRev * (1 + rho * (ratio - 1));
+    // A route being exited loses its revenue with its flights. So does any cut
+    // taken past the plan, which is an exit by another name - but it is taken
+    // from the plan's revenue rather than recomputed, so the curve stays
+    // continuous as the slider crosses the plan.
+    const level = levelFor(route, levers);
+    const revenue = (() => {
+      if (route.Exit) return route.NetRev * ratio;                 // rho = 1
+      if (level <= 1 || levers.mode === 'manual') {
+        const rho = ratio < 1 ? levers.rhoDown : levers.rhoUp;
+        return route.NetRev * (1 + rho * (ratio - 1));
+      }
+      const planFlights = targetFlights(route, { ...levers, phase: 1, restoreLevel: 1, decideLevel: 1 });
+      const planRatio = today > 0 ? planFlights / today : 0;
+      const atPlan = route.NetRev * (1 + levers.rhoDown * (planRatio - 1));
+      return planFlights > 0 ? atPlan * (flights / planFlights) : 0;
+    })();
+    // The share of revenue that actually left with the flights, which is what
+    // the connecting feed and the ticket count have to follow.
+    const rho = ratio < 1 ? (1 - revenue / route.NetRev) / (1 - ratio)
+      : ratio > 1 ? levers.rhoUp : 0;
     const crewPerFlight = today > 0 ? route.Crew / today : 0;
     const cost = flights * route.CostPerFlight
       + (1 - levers.crewShed) * Math.max(0, today - flights) * crewPerFlight;
     const fareGain = route.Cohort === 'Protect' ? route.TicketRev * uplift : 0;
     // Cutting a route also costs the feed it hands to the stable network.
-    const feedLoss = exited ? 0 : route.FeedToStableRev * rho * (1 - ratio);
-    const tickets = route.Tickets * (1 + rho * (ratio - 1));
+    const feedLoss = route.Exit ? 0 : route.FeedToStableRev * rho * (1 - ratio);
+    const tickets = route.NetRev > 0 ? route.Tickets * (revenue / route.NetRev) : 0;
     const breakEven = route.AvgFare > 0 ? route.CostPerFlight / route.AvgFare : 0;
     const ticketsPerFlight = flights > 0 ? tickets / flights : 0;
 
@@ -142,7 +174,13 @@ export function scenario(levers: Levers): Scenario {
 }
 
 /** Today: every lever neutral. The visual reference for every other number. */
-export const TODAY_LEVERS: Levers = { ...DEFAULT_LEVERS, phase: 0, tranche: -1, seasonal: false };
+export const TODAY_LEVERS: Levers = {
+  ...DEFAULT_LEVERS, phase: 0, tranche: -1, seasonal: false,
+  restoreLevel: 0, decideLevel: 0,
+};
+
+/** The levels the recommended plan sits at, for the UI's slider marks. */
+export const PLAN_LEVEL = 1;
 
 /**
  * Protect fare increase that closes a gap, solving

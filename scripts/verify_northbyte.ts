@@ -55,6 +55,34 @@ check('YUL-YVR: revenue today', yulyvr.NetRev, 9.29 * M, 0.01 * M);
 check('YUL-YVR: cost today', yulyvr.Cost, 19.63 * M, 0.01 * M);
 check('YUL-YVR: contribution today', yulyvr.Contrib, -10.34 * M, 0.01 * M);
 
+// ------------------------------------------- the per-solution levels ------
+// The two flight levers can be pulled independently; at full they have to land
+// exactly where the brief's full plan lands, and at zero exactly on today.
+const levelled = (restoreLevel: number, decideLevel: number, extra: Partial<Levers> = {}) =>
+  scenario({ ...DEFAULT_LEVERS, phase: 1, tranche: 4, restoreLevel, decideLevel, ...extra });
+
+const fullByLevels: Partial<Levers> = {
+  farePct: presets.costPassThroughFarePct, elasticity: 0,
+  gates: 'forecast', releaseIdleGates: true, seasonal: true, crewShed: 1,
+};
+check('levels=1, rho High  -> full plan', levelled(1, 1, { ...fullByLevels, rhoDown: presets.rhoDown.High }).profit, 3.26 * M);
+check('levels=1, rho Mid   -> full plan', levelled(1, 1, { ...fullByLevels, rhoDown: presets.rhoDown.Mid }).profit, -0.84 * M);
+check('levels=1, rho Low   -> full plan', levelled(1, 1, { ...fullByLevels, rhoDown: presets.rhoDown.Low }).profit, -23.58 * M);
+check('levels=0 -> today', levelled(0, 0, { seasonal: true }).profit, today.profit, 1);
+check('levels=0 -> today, flights', levelled(0, 0).flights, 15_729, 0.5);
+
+function monotonic(label: string, pull: (level: number) => number) {
+  const steps = [0, 0.25, 0.5, 0.75, 1].map(pull);
+  const rising = steps.every((v, i) => i === 0 || v >= steps[i - 1] - 1);
+  if (!rising) failures += 1;
+  console.log(`${rising ? 'PASS' : 'FAIL'}  ${label.padEnd(46)} ` +
+    steps.map(v => (v / M).toFixed(1)).join(' -> '));
+}
+monotonic('profit rises with restoreLevel ($M)', level => levelled(level, 0).profit);
+monotonic('profit rises with decideLevel ($M)', level => levelled(0, level).profit);
+// Past the plan the new routes are exited outright, which still helps.
+monotonic('profit rises past the plan ($M)', level => levelled(0, 1 + level).profit);
+
 console.log(failures === 0
   ? '\nAll acceptance tests pass.'
   : `\n${failures} acceptance test(s) FAILED.`);
