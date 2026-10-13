@@ -6,6 +6,7 @@ import map from '../data/northbyte-map.json';
 import { routes, type Route } from './model';
 import { Figure } from './Figure';
 import { FLIGHT_PATH } from './Brand';
+import { signed } from './format';
 
 // The network as it is flown: one arc per route, and aircraft moving along it in
 // proportion to how often it is flown. Cutting flights thins the traffic, which
@@ -249,7 +250,7 @@ export default function NetworkMap({
             without clicking back and forth. */}
         <span className={`mapDelta ${isForecast && recovered > 0 ? 'up' : ''}`}>
           {isForecast
-            ? <><Figure value={recovered / 1_000_000} format={v => `+$${v.toFixed(1)}M`} /> if this frequency held for a full year</>
+            ? <><Figure value={recovered} format={signed} /> if this frequency held for a full year</>
             : `${change < 0 ? '−' : '+'}${Math.abs(change)}% flights vs the pre-expansion months`}
         </span>
       </div>
@@ -262,8 +263,8 @@ export default function NetworkMap({
       <i className="rule restore" /> Restore <small>10 routes, the loss</small>
       <i className="rule decide" /> Decide <small>6, re-cut or exited</small>
       <i className="rule protect" /> Protect <small>38, held flat</small>
-      {fareGain > 50_000 &&
-        <span className="fareChip">+${(fareGain / 1_000_000).toFixed(1)}M from fares</span>}
+      {Math.abs(fareGain) > 50_000 &&
+        <span className={`fareChip ${fareGain < 0 ? 'neg' : ''}`}>{signed(fareGain)} from fares</span>}
       <span className="legendNote">
         One aircraft stands for about {Math.round(FLIGHTS_PER_PLANE)} flights a month.
       </span>

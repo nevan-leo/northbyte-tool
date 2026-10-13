@@ -10,9 +10,10 @@ import {
 // actually operates in - flights a week, dollars a ticket - rather than in the
 // model's internal levels. Every figure here is computed from the route data.
 
+import { money, signed } from './format';
+
 const M = 1_000_000;
 const WEEKS = 52;
-const money = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(v / M).toFixed(1)}M`;
 
 const RESTORE = routes.filter(r => r.Cohort === 'Restore');
 const DECIDE = routes.filter(r => r.Cohort === 'Decide');
@@ -230,13 +231,13 @@ function Solution({ n, title, impact, axis, readout, children }: {
     <h3><span>{n}</span>{title}</h3>
     <div className="solutionHead">
       <p className="readout">{readout}</p>
-      <div className="impact" title={`${money(impact.value)} measured on its own`}>
+      <div className="impact" title={`${signed(impact.value)} measured on its own`}>
         <span className="impactTrack">
           {banded && <i className="impactBand"
              style={{ left: width(Math.min(impact.low, 0)), width: width(impact.high - impact.low) }} />}
           <i className={`impactBar ${impact.value < 0 ? 'neg' : ''}`} style={{ width: width(impact.value) }} />
         </span>
-        <b>{money(impact.value)}</b>
+        <b className={impact.value < 0 ? 'neg' : ''}>{signed(impact.value)}</b>
       </div>
     </div>
     {children}

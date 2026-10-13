@@ -8,6 +8,7 @@
 import {
   scenario, routes, presets, DEFAULT_LEVERS, TODAY_LEVERS, type Levers,
 } from '../app/northbyte/model';
+import { signed } from '../app/northbyte/format';
 
 const M = 1_000_000;
 let failures = 0;
@@ -82,6 +83,48 @@ monotonic('profit rises with restoreLevel ($M)', level => levelled(level, 0).pro
 monotonic('profit rises with decideLevel ($M)', level => levelled(0, level).profit);
 // Past the plan the new routes are exited outright, which still helps.
 monotonic('profit rises past the plan ($M)', level => levelled(0, 1 + level).profit);
+
+
+// ------------------------------------------------- edge cases --------------
+// Nothing here should produce a NaN, an Infinity, or a number that claims to be
+// a gain while being a loss.
+
+const edges: [string, Partial<Levers>][] = [
+  ['everything at today', { restoreLevel: 0, decideLevel: 0, farePct: 0, releaseIdleGates: false }],
+  ['every route cut away', { restoreLevel: 1, decideLevel: 2, farePct: 0 }],
+  ['fares at 10% with no demand response', { restoreLevel: 0, decideLevel: 0, farePct: 10, elasticity: 0 }],
+  ['fares at 10% at route-level elasticity', { restoreLevel: 0, decideLevel: 0, farePct: 10, elasticity: -1.54 }],
+  ['revenue leaves with the flights', { restoreLevel: 1, decideLevel: 1, rhoDown: 1 }],
+  ['no crew cost shed', { restoreLevel: 1, decideLevel: 1, crewShed: 0 }],
+  ['manual, every cohort grounded', { mode: 'manual', multipliers: { Restore: 0, Decide: 0, Protect: 0 } }],
+  ['manual, every cohort at 150%', { mode: 'manual', multipliers: { Restore: 1.5, Decide: 1.5, Protect: 1.5 } }],
+  ['target margin at zero', { targetMarginPct: 0 }],
+];
+
+for (const [label, patch] of edges) {
+  const s = scenario({ ...DEFAULT_LEVERS, phase: 1, tranche: 4, ...patch });
+  const numbers = [s.profit, s.flights, s.revenue, s.cost, s.contribution, s.margin,
+                   s.fareGain, s.feedLoss, s.gapToBreakeven, s.gapToTarget,
+                   ...s.byRoute.flatMap(r => [r.flights, r.revenue, r.cost, r.ticketsPerFlight])];
+  const bad = numbers.filter(v => !Number.isFinite(v));
+  const ok = bad.length === 0 && s.flights >= 0;
+  if (!ok) failures += 1;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  edge: ${label.padEnd(40)} ` +
+    `profit ${(s.profit / M).toFixed(1)}M  flights ${Math.round(s.flights)}` +
+    (bad.length ? `  ${bad.length} non-finite` : ''));
+}
+
+// The sign on a difference has to be the difference's own.
+const formatting: [number, string][] = [
+  [0, 'no change'], [10_000, 'no change'], [-10_000, 'no change'],
+  [42_800_000, '+$42.8M'], [-1_200_000, '−$1.2M'], [NaN, 'no change'],
+];
+for (const [value, want] of formatting) {
+  const got = signed(value);
+  const ok = got === want;
+  if (!ok) failures += 1;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  signed(${String(value).padEnd(12)}) -> ${got.padEnd(10)} want ${want}`);
+}
 
 console.log(failures === 0
   ? '\nAll acceptance tests pass.'

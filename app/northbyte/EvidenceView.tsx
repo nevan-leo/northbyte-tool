@@ -226,6 +226,7 @@ export default function EvidenceView({ levers, result, today }:
         <li>No price response is measurable in the data: there is no price variation to measure it from.</li>
         <li>Aircraft lease costs are not in the data and are not modelled. Crew shed at 100% assumes redeployment and no severance.</li>
         <li>One ticket is treated as one passenger. Seat counts are absent, so load factor is never shown — fill is tickets per flight against the break-even count.</li>
+        <li>ρ is a local response, measured against the expansion. Pushed to an extreme — grounding a whole cohort in Advanced — it keeps 81% of the revenue while every cost disappears, which is an artefact of the assumption, not a finding.</li>
         <li>Every profit figure restates FY25-26 at the chosen frequency: one year re-run, not a run rate. Nothing compounds and no second year is projected.</li>
         <li>These are scenarios, not forecasts, and nothing here establishes causation.</li>
       </ul>
