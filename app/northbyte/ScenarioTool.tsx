@@ -37,6 +37,9 @@ export default function ScenarioTool() {
   const [step, setStep] = useState(FORECAST_MONTHS);
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);          // dragging, or animating to a state
+  // Doing nothing is a different shape of future, not a lever: flights keep
+  // growing at last year's pace and cost per flight keeps drifting up.
+  const [drifting, setDrifting] = useState(false);
   const animation = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -46,12 +49,15 @@ export default function ScenarioTool() {
     return () => window.clearInterval(id);
   }, [playing]);
 
-  const set = useCallback(<K extends keyof Levers>(key: K, value: Levers[K]) =>
-    setLevers(current => ({ ...current, [key]: value })), []);
+  const set = useCallback(<K extends keyof Levers>(key: K, value: Levers[K]) => {
+    setDrifting(false);
+    setLevers(current => ({ ...current, [key]: value }));
+  }, []);
 
   /** Walk the levers to a target state so the audience watches the planes leave. */
-  const glideTo = useCallback((target: Levers, ms = 1500) => {
+  const glideTo = useCallback((target: Levers, ms = 1500, drift = false) => {
     if (animation.current) cancelAnimationFrame(animation.current);
+    setDrifting(drift);
     setBusy(true);
     setLevers(from => {
       const started = performance.now();
@@ -86,16 +92,30 @@ export default function ScenarioTool() {
   // forecast is the plan on a calendar rather than a separate assumption.
   const forecast = useMemo<ForecastStep[]>(() =>
     Array.from({ length: FORECAST_MONTHS }, (_, i) => {
-      const tranche = Math.min(levers.tranche, Math.floor(i / 3) + 1);
       const month = new Date(FORECAST_START.getFullYear(), FORECAST_START.getMonth() + i);
+      const label = month.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+      const through = (i + 1) / FORECAST_MONTHS;
+
+      if (drifting) {
+        // Carry on as we are: the network keeps growing the way it grew last
+        // year, and the profit walks toward what that costs.
+        const scale = 1 + drift.flightsGrowth * through;
+        return {
+          label, tranche: 0,
+          profit: today.profit + (nothing.expanding - today.profit) * through,
+          flights: Object.fromEntries(
+            scenario(TODAY_LEVERS).byRoute.map(r => [r.route.Route, r.flights * scale])),
+        };
+      }
+
+      const tranche = Math.min(levers.tranche, Math.floor(i / 3) + 1);
       const projection = scenario({ ...levers, tranche });
       return {
-        label: month.toLocaleString('en-US', { month: 'short', year: 'numeric' }),
-        tranche,
+        label, tranche,
         profit: projection.profit,
         flights: Object.fromEntries(projection.byRoute.map(r => [r.route.Route, r.flights])),
       };
-    }), [levers]);
+    }), [levers, drifting, today, nothing]);
 
   const atPlan = JSON.stringify(levers) === JSON.stringify(PLAN);
 
@@ -151,11 +171,14 @@ export default function ScenarioTool() {
       </div>
 
       <p className="doNothing">
-        <b>Do nothing</b> and FY26-27 is {money(nothing.held)}: cost per flight rose
+        <b>Do nothing</b> and FY26-27 is {money(nothing.held)} with flights held: cost per flight rose
         {' '}{(drift.costPerFlightGrowth * 100).toFixed(1)}% between the two years in the data
         while the average fare moved {(drift.fareGrowth * 100).toFixed(1)}%. Carry on
         expanding at last year&apos;s pace and it is {money(nothing.expanding)}.
-        <small>Two observed years extrapolated, not a forecast of demand.</small>
+        <small>
+          Two observed years extrapolated, not a forecast of demand. The <b>Do nothing</b>
+          button runs the second case on the map.
+        </small>
       </p>
 
       {tab === 'map' && <div className="scenarioGrid viewFade" key="map">
@@ -163,8 +186,10 @@ export default function ScenarioTool() {
              onPointerUp={() => setBusy(false)}
              onPointerCancel={() => setBusy(false)}>
           <LeverPanel levers={levers} set={set} result={result}
-                      onToday={() => glideTo(TODAY)} onPlan={() => glideTo(PLAN)}
-                      animating={busy} />
+                      onToday={() => glideTo(TODAY)}
+                      onNothing={() => { glideTo(TODAY, 900, true); setStep(FORECAST_MONTHS); }}
+                      onPlan={() => glideTo(PLAN)}
+                      drifting={drifting} animating={busy} />
         </div>
 
         <div className="panel mapPanel">

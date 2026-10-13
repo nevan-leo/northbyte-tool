@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  scenario, ceiling, routes, constants, presets, COHORTS, requiredFarePct,
+  scenario, recipe, routes, constants, presets, COHORTS, requiredFarePct,
   protectTicketRevenue, type Levers, type Scenario,
 } from './model';
 
@@ -44,12 +44,15 @@ export const ELASTICITIES = [
   { value: -1.54, name: 'Route level', note: 'IATA/InterVISTAS, illustrative' },
 ] as const;
 
-export default function LeverPanel({ levers, set, result, onToday, onPlan, animating }: {
+export default function LeverPanel({ levers, set, result, onToday, onNothing, onPlan,
+                                     drifting, animating }: {
   levers: Levers;
   set: <K extends keyof Levers>(key: K, value: Levers[K]) => void;
   result: Scenario;
   onToday: () => void;
+  onNothing: () => void;
   onPlan: () => void;
+  drifting: boolean;
   animating: boolean;
 }) {
   const flightsOf = (code: string) =>
@@ -90,7 +93,8 @@ export default function LeverPanel({ levers, set, result, onToday, onPlan, anima
     };
   }, [levers]);
 
-  const best = useMemo(() => ceiling(levers, FARE_EVIDENCE_CEILING), [levers]);
+  const plan = useMemo(() => recipe(levers, FARE_EVIDENCE_CEILING), [levers]);
+  const stack = Math.max(...plan.steps.map(s => Math.abs(s.value)), 1);
   const fareToBreakeven = requiredFarePct(result.gapToBreakeven, levers.elasticity, protectTicketRevenue);
 
   const axis = Math.max(1, ...Object.values(impacts)
@@ -101,7 +105,8 @@ export default function LeverPanel({ levers, set, result, onToday, onPlan, anima
 
     <div className="filterrow stateButtons">
       <button className="pill" onClick={onToday}>Today</button>
-      <button className="pill active" onClick={onPlan}>Our plan</button>
+      <button className={`pill ${drifting ? 'active' : ''}`} onClick={onNothing}>Do nothing</button>
+      <button className="pill" onClick={onPlan}>Our plan</button>
     </div>
 
     <Solution n={1} title="Roll back the doubled routes"
@@ -222,30 +227,57 @@ export default function LeverPanel({ levers, set, result, onToday, onPlan, anima
     </p>
 
     <section className="lands">
-      <div className="sectionhead"><span>Where this lands</span></div>
+      <div className="sectionhead"><span>How we break even</span>
+        <small>at the assumptions selected</small></div>
+
       <p className="landsNow">
         <b className={result.profit < 0 ? 'neg' : 'pos'}>{money(result.profit)}</b>
         {result.profit < 0
-          ? <> · {money(-result.profit)} short of break even</>
-          : <> · {money(result.profit)} clear of break even</>}
+          ? <>where the sliders are · {money(-result.profit)} short</>
+          : <>where the sliders are · {money(result.profit)} clear</>}
       </p>
+
+      <ol className="recipe">
+        {plan.steps.map(step => (
+          <li key={step.label} className={step.value < 0.05 * M ? 'idle' : ''}>
+            <span className="recipeBar">
+              <i style={{ width: `${(Math.abs(step.value) / stack) * 100}%` }}
+                 className={step.value < 0 ? 'neg' : ''} />
+            </span>
+            <span className="recipeLabel">{step.label}</span>
+            <b className={step.value < 0 ? 'neg' : ''}>{signed(step.value)}</b>
+          </li>
+        ))}
+        <li className="recipeTotal">
+          <span className="recipeBar" />
+          <span className="recipeLabel">All four together</span>
+          <b className={plan.breaksEven ? 'pos' : 'neg'}>{money(plan.profit)}</b>
+        </li>
+      </ol>
+
       <p className="note">
-        {fareToBreakeven === null
-          ? 'Fares cannot close the rest on their own at this price response.'
-          : result.gapToBreakeven > 0.05 * M
-            ? <>A further {fareToBreakeven.toFixed(1)}% on the stable fares would close it
-                {fareToBreakeven > FARE_EVIDENCE_CEILING ? ', which is beyond what the data shows.' : '.'}</>
-            : 'Break even is already covered.'}
+        {plan.bestFarePct < 0.01
+          ? <>At this price response a fare rise loses more in tickets than it earns, so the
+              answer is to leave fares alone. The flights have to do all of it.</>
+          : <>A fare rise earns most at <b>{plan.bestFarePct.toFixed(1)}%</b> here
+              {plan.bestFarePct >= FARE_EVIDENCE_CEILING
+                ? <>, which is the top of what the data supports</>
+                : <>, past which the tickets lost cost more than the price gained</>}.</>}
       </p>
+
       <p className="note">
-        The most these four can do, with every new route exited and fares at the
-        {' '}{FARE_EVIDENCE_CEILING}% the data supports: <b>{money(best.profit)}</b>.
-        {best.short > 0.05 * M
-          ? <> Still {money(best.short)} short of the {(constants.targetMarginPct).toFixed(1)}% sustainable
-              target, which has to come from the second wave rather than from these levers.</>
-          : <> That clears the {(constants.targetMarginPct).toFixed(1)}% target.</>}
+        {plan.breaksEven
+          ? <>Pulled all the way, these four clear break even by <b>{money(plan.profit)}</b>.{' '}
+              {plan.short > 0.05 * M
+                ? <>The {constants.targetMarginPct.toFixed(1)}% sustainable target is {money(plan.short)} further
+                    on, and has to come from the second wave rather than from here.</>
+                : <>That also clears the {constants.targetMarginPct.toFixed(1)}% target.</>}</>
+          : <>Pulled all the way, these four still land at <b>{money(plan.profit)}</b>. Break even is
+              not reachable from here under this demand case
+              {fareToBreakeven !== null && <> — fares alone would need {fareToBreakeven.toFixed(0)}%</>}.</>}
       </p>
     </section>
+
   </aside>;
 }
 

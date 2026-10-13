@@ -441,3 +441,14 @@ button { cursor:pointer; }
   font-size:var(--t-figure); display:block; }
 .lands .note { margin-top:var(--s2); }
 .lands .note b { color:var(--ink); }
+.recipe { list-style:none; margin:var(--s3) 0 var(--s4); padding:0; }
+.recipe li { display:grid; grid-template-columns:72px minmax(0,1fr) 64px; align-items:center;
+  gap:var(--s3); padding:var(--s2) 0; font-size:var(--t-small); }
+.recipe li.idle { opacity:.45; }
+.recipe li.recipeTotal { border-top:1px solid var(--line-2); margin-top:var(--s2); padding-top:var(--s3); font-weight:600; }
+.recipeBar { display:block; height:var(--s2); background:var(--paper-2); border-radius:var(--r); overflow:hidden; }
+.recipeBar i { display:block; height:100%; background:var(--ink); border-radius:var(--r);
+  transition:width .3s cubic-bezier(.2,.6,.2,1); }
+.recipeBar i.neg { background:var(--clay); }
+.recipeLabel { color:var(--ink-2); }
+.recipe b { text-align:right; font-family:var(--font-geist-mono),monospace; font-variant-numeric:tabular-nums; }

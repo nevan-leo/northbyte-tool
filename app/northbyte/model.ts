@@ -235,6 +235,45 @@ export function doNothing() {
 }
 
 /**
+ * The fare rise that earns the most at a given price response.
+ *
+ * Revenue moves with (1+p)(1+e·p), a downward parabola once e is negative, so
+ * it peaks at p* = −(1+e)/2e. At e = −1.54 that peak is below zero: every
+ * dollar on the fare costs more in lost tickets than it brings in, and the
+ * right answer is not to raise fares at all. Capped at what the data supports.
+ */
+export function bestFarePct(elasticity: number, ceilingPct: number) {
+  if (elasticity === 0) return ceilingPct;
+  const peak = (-(1 + elasticity) / (2 * elasticity)) * 100;
+  return Math.max(0, Math.min(ceilingPct, peak));
+}
+
+/**
+ * How the hole gets filled, under the demand and price assumptions now
+ * selected: each lever measured on its own, the fare set to whatever earns most
+ * at this elasticity, and an honest verdict on whether that reaches break even.
+ */
+export function recipe(levers: Levers, fareCeilingPct: number) {
+  const floor: Levers = { ...levers, mode: 'preset', phase: 1, tranche: 4,
+    restoreLevel: 0, decideLevel: 0, farePct: 0, releaseIdleGates: false };
+  const nothing = scenario(floor).profit;
+  const only = (patch: Partial<Levers>) => scenario({ ...floor, ...patch }).profit - nothing;
+  const fare = bestFarePct(levers.elasticity, fareCeilingPct);
+
+  const steps = [
+    { label: 'Roll back the doubled routes', value: only({ restoreLevel: 1 }) },
+    { label: 'Exit every new route', value: only({ decideLevel: 2 }) },
+    { label: 'Hand back the idle gates', value: only({ releaseIdleGates: true }) },
+    { label: fare > 0.01 ? `Fares, ${fare.toFixed(1)}% on the stable routes` : 'Fares, left alone',
+      value: only({ farePct: fare }) },
+  ];
+  const all = scenario({ ...floor, restoreLevel: 1, decideLevel: 2,
+    releaseIdleGates: true, farePct: fare });
+  return { steps, bestFarePct: fare, nothing, profit: all.profit, target: all.target,
+           short: all.target - all.profit, breaksEven: all.profit >= 0 };
+}
+
+/**
  * The most these four levers can do from where the sliders are, under the
  * demand and price assumptions now selected: every flight lever at its end and
  * fares at the top of what the data can speak to. If this is short of the

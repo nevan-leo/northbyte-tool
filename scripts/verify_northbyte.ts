@@ -8,7 +8,7 @@
 import {
   scenario, routes, presets, DEFAULT_LEVERS, TODAY_LEVERS, type Levers,
 } from '../app/northbyte/model';
-import { ceiling, doNothing } from '../app/northbyte/model';
+import { bestFarePct, ceiling, doNothing, recipe } from '../app/northbyte/model';
 import { signed } from '../app/northbyte/format';
 
 const M = 1_000_000;
@@ -159,6 +159,32 @@ const faresBackfire = elastic.profit < midCeiling.profit;
 if (!faresBackfire) failures += 1;
 console.log(`${faresBackfire ? 'PASS' : 'FAIL'}  fares at the national elasticity give back ` +
   `${((midCeiling.profit - elastic.profit) / M).toFixed(1)}M of the ceiling`);
+
+
+// -------------------------------------------- the fare optimum --------------
+// Revenue moves with (1+p)(1+e·p), so once e is negative there is a price past
+// which the tickets lost cost more than the fare gained.
+check('best fare, no price response', bestFarePct(0, 6.4), 6.4, 0.01);
+check('best fare, half response', bestFarePct(-0.5, 6.4), 6.4, 0.01);
+check('best fare, national average', bestFarePct(-0.88, 6.4), 6.4, 0.01);
+check('best fare, route level -> leave fares alone', bestFarePct(-1.54, 6.4), 0, 0.01);
+check('best fare, uncapped national average', bestFarePct(-0.88, 100), 6.82, 0.02);
+
+// The whole recipe, at base demand, under each price response.
+const atBase2: Levers = { ...DEFAULT_LEVERS, phase: 1, tranche: 4, gates: 'forecast',
+                          releaseIdleGates: true, seasonal: true, rhoDown: presets.rhoDown.Mid };
+for (const [name, e, want] of [['no response', 0, 3.8], ['half', -0.5, -1.1],
+                               ['national average', -0.88, -4.8],
+                               ['route level', -1.54, -5.4]] as const) {
+  const r = recipe({ ...atBase2, elasticity: e }, 6.4);
+  check(`recipe at base demand, ${name}`, r.profit, want * M, 0.2 * M);
+}
+const flightsCarryIt = recipe({ ...atBase2, elasticity: -1.54 }, 6.4);
+const flightShare = flightsCarryIt.steps.slice(0, 2).reduce((a, s) => a + s.value, 0);
+const faresDoNothing = Math.abs(flightsCarryIt.steps[3].value) < 0.05 * M;
+if (!(flightShare > 50 * M && faresDoNothing)) failures += 1;
+console.log(`${flightShare > 50 * M && faresDoNothing ? 'PASS' : 'FAIL'}  at route-level elasticity the ` +
+  `flights carry ${(flightShare / M).toFixed(1)}M and fares are left alone`);
 
 console.log(failures === 0
   ? '\nAll acceptance tests pass.'
