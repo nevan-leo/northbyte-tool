@@ -58,6 +58,19 @@ npm run lint
 npx tsc --noEmit
 ```
 
+> **If the page loads but nothing on it works**, the production server is serving
+> HTML that points at JavaScript chunks a later `npm run build` has already
+> replaced, and the browser gets a 404 for them. Rebuild and restart in that
+> order, then hard-reload the browser (⌘⇧R):
+>
+> ```bash
+> pkill -f "vinext start"; npm run build && npm start
+> ```
+>
+> `npm run dev` does not have this failure mode and is the better choice while
+> anything is still changing.
+
+
 Rebuild the embedded data (only needed if the source files change):
 
 ```bash
