@@ -48,7 +48,7 @@ export const ELASTICITIES = [
 
 export default function LeverPanel({ section, levers, set, result, onNothing, onPlan,
                                      drifting, atPlan, animating }: {
-  section: 'solutions' | 'rail';
+  section: 'solutions' | 'breakeven' | 'rail';
   levers: Levers;
   set: <K extends keyof Levers>(key: K, value: Levers[K]) => void;
   result: Scenario;
@@ -148,8 +148,8 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
              onChange={v => set('decideLevel', v / 50)} />
       <p className="line">
         London {(flightsOf('YYZ-YXU') / WEEKS).toFixed(1)} · Moncton {(flightsOf('YHZ-YQM') / WEEKS).toFixed(1)} ·
-        Ottawa–Montréal {(flightsOf('YOW-YUL') / WEEKS).toFixed(1)} a week each way.
-        London and Moncton are reduced until each flight needs about 10 tickets to break even.
+        Ottawa–Montréal {(flightsOf('YOW-YUL') / WEEKS).toFixed(1)} a week each way, reduced until
+        each flight needs about 10 tickets to break even.
       </p>
     </Solution>
 
@@ -161,10 +161,55 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
       <label className="toggle">
         <input type="checkbox" checked={levers.releaseIdleGates}
                onChange={e => set('releaseIdleGates', e.target.checked)} />
-        <span>Hand back Halifax A3 and Ottawa A2, effective at the January renewal</span>
+        <span>Halifax A3 and Ottawa A2, at the January renewal</span>
       </label>
     </Solution>
   </div>;
+
+  if (section === 'breakeven') return <section className="breakevenBox">
+      <div className="sectionhead"><span>How we break even</span>
+        <small>at the assumptions selected</small></div>
+
+      <p className="landsNow">
+        <b className={result.profit < 0 ? 'neg' : 'pos'}>{money(result.profit)}</b>
+        <span>{result.profit < 0 ? `${money(-result.profit)} short` : `${money(result.profit)} clear`}</span>
+      </p>
+
+      <ol className="recipe">
+        {plan.steps.map(step => (
+          <li key={step.label} className={step.value < 0.05 * M ? 'idle' : ''}>
+            <span className="recipeBar">
+              <i style={{ width: `${(Math.abs(step.value) / stack) * 100}%` }}
+                 className={step.value < 0 ? 'neg' : ''} />
+            </span>
+            <span className="recipeLabel">{step.label}</span>
+            <b className={step.value < 0 ? 'neg' : ''}>{signed(step.value)}</b>
+          </li>
+        ))}
+        <li className="recipeTotal">
+          <span className="recipeBar" />
+          <span className="recipeLabel">All four together</span>
+          <b className={plan.breaksEven ? 'pos' : 'neg'}>{money(plan.profit)}</b>
+        </li>
+      </ol>
+
+      <p className="note">
+        {plan.bestFarePct < 0.01
+          ? <>At this price response, fares lose more in tickets than they earn. Leave them alone.</>
+          : <>Fares earn most at <b>{plan.bestFarePct.toFixed(1)}%</b>
+              {plan.bestFarePct >= FARE_EVIDENCE_CEILING ? ', the top of the evidence' : ', past which they cost more than they earn'}.</>}
+      </p>
+
+      <p className="note">
+        {plan.breaksEven
+          ? <>All four, pulled fully: <b>{money(plan.profit)}</b>.{' '}
+              {plan.short > 0.05 * M
+                ? <>The {constants.targetMarginPct.toFixed(1)}% target is {money(plan.short)} beyond them.</>
+                : <>Clears the {constants.targetMarginPct.toFixed(1)}% target.</>}</>
+          : <>All four, pulled fully: <b>{money(plan.profit)}</b>. Break even is out of reach here
+              {fareToBreakeven !== null && <>; fares alone would need {fareToBreakeven.toFixed(0)}%</>}.</>}
+      </p>
+  </section>;
 
   return <aside className="rail">
     <section className="pillar selectors">
@@ -226,63 +271,6 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
       </label>
     </details>
 
-    <p className="note small">
-      Each bar is that lever measured on its own, so they will not sum exactly to
-      the total.
-    </p>
-
-    <section className="lands">
-      <div className="sectionhead"><span>How we break even</span>
-        <small>at the assumptions selected</small></div>
-
-      <p className="landsNow">
-        <b className={result.profit < 0 ? 'neg' : 'pos'}>{money(result.profit)}</b>
-        {result.profit < 0
-          ? <>where the sliders are · {money(-result.profit)} short</>
-          : <>where the sliders are · {money(result.profit)} clear</>}
-      </p>
-
-      <ol className="recipe">
-        {plan.steps.map(step => (
-          <li key={step.label} className={step.value < 0.05 * M ? 'idle' : ''}>
-            <span className="recipeBar">
-              <i style={{ width: `${(Math.abs(step.value) / stack) * 100}%` }}
-                 className={step.value < 0 ? 'neg' : ''} />
-            </span>
-            <span className="recipeLabel">{step.label}</span>
-            <b className={step.value < 0 ? 'neg' : ''}>{signed(step.value)}</b>
-          </li>
-        ))}
-        <li className="recipeTotal">
-          <span className="recipeBar" />
-          <span className="recipeLabel">All four together</span>
-          <b className={plan.breaksEven ? 'pos' : 'neg'}>{money(plan.profit)}</b>
-        </li>
-      </ol>
-
-      <p className="note">
-        {plan.bestFarePct < 0.01
-          ? <>At this price response a fare rise loses more in tickets than it earns, so the
-              answer is to leave fares alone. The flights have to do all of it.</>
-          : <>A fare rise earns most at <b>{plan.bestFarePct.toFixed(1)}%</b> here
-              {plan.bestFarePct >= FARE_EVIDENCE_CEILING
-                ? <>, which is the top of what the data supports</>
-                : <>, past which the tickets lost cost more than the price gained</>}.</>}
-      </p>
-
-      <p className="note">
-        {plan.breaksEven
-          ? <>Pulled all the way, these four clear break even by <b>{money(plan.profit)}</b>.{' '}
-              {plan.short > 0.05 * M
-                ? <>The {constants.targetMarginPct.toFixed(1)}% sustainable target is {money(plan.short)} further
-                    on, and has to come from the second wave rather than from here.</>
-                : <>That also clears the {constants.targetMarginPct.toFixed(1)}% target.</>}</>
-          : <>Pulled all the way, these four still land at <b>{money(plan.profit)}</b>. Break even is
-              not reachable from here under this demand case
-              {fareToBreakeven !== null && <> — fares alone would need {fareToBreakeven.toFixed(0)}%</>}.</>}
-      </p>
-    </section>
-
   </aside>;
 }
 
@@ -318,7 +306,7 @@ function Track({ label, value, min, max, step = 1, marks = [], shadeFrom, shadeT
 }) {
   const place = (v: number) => ((v - min) / (max - min)) * 100;
   const progress = place(value);
-  return <label className="slider track">
+  return <label className="slider leverTrack">
     <span className="trackLabel">{label}</span>
     <span className="trackRail">
       {shadeFrom !== undefined &&
