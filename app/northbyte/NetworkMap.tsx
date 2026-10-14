@@ -378,17 +378,21 @@ function Timeline({ forecast, now, selected, onSelect, playing, onTogglePlay }: 
     <div className="track" role="group" aria-label="Flights per month, today and the twelve months ahead">
       {levels.map((value, index) => {
         const stepOf = forecast[index - 1];
-        // Mark the month a tranche of the rollback lands.
-        const lands = index > 0 && stepOf.tranche !== (forecast[index - 2]?.tranche ?? 0);
+        // Mark only the month a whole tranche finishes landing. The tranche runs
+        // continuously now, so comparing the raw value marked every month.
+        const done = index > 0 ? Math.floor(stepOf.tranche + 1e-9) : 0;
+        const doneBefore = index > 1 ? Math.floor(forecast[index - 2].tranche + 1e-9) : 0;
+        const lands = done > doneBefore && done >= 1;
         return <button key={index}
                 className={`tick ${index === 0 ? 'now' : 'ahead'} ${selected === index ? 'on' : ''}`}
                 onClick={() => onSelect(index)}
                 aria-label={index === 0
                   ? `FY25-26 as flown, ${Math.round(value).toLocaleString('en-US')} flights in an average month`
-                  : `${stepOf.label}, ${Math.round(value).toLocaleString('en-US')} flights, tranche ${stepOf.tranche} applied`}
+                  : `${stepOf.label}, ${Math.round(value).toLocaleString('en-US')} flights, ` +
+                    `tranche ${stepOf.tranche.toFixed(1)} applied`}
                 aria-pressed={selected === index}>
           <i style={{ height: `${Math.max(3, (value / peak) * 100)}%` }} />
-          {lands && <em>T{stepOf.tranche}</em>}
+          {lands && <em>T{done}</em>}
         </button>;
       })}
     </div>
