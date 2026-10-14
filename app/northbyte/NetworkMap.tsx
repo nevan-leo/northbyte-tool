@@ -81,19 +81,15 @@ export type ForecastStep = {
   flights: Record<string, number>;      // annual flights per route
 };
 
-// A year's flights do not fall evenly across its months: August flew 1,474 and
-// February 1,103. Spreading an annual figure flat made every forecast month
-// look like a cut against a summer month that was simply busier, so each route
-// carries its own share of the year, measured from FY25-26.
+// Everything on this map is an AVERAGE MONTH of the year in question. A single
+// calendar month is not comparable with another - August flew 1,474 and
+// February 1,103 - so showing real months made the plan's effect wobble up and
+// down when what it does is come steadily down. Seasonality is a finding in its
+// own right and lives in the evidence tab.
 const FY = 12;                                    // the second year in the data
-const SEASONAL_SHARE: Record<string, number[]> = Object.fromEntries(
-  Object.entries(MONTHLY).map(([route, counts]) => {
-    const year = counts.slice(FY);
-    const total = year.reduce((a, v) => a + v, 0);
-    return [route, year.map(v => (total > 0 ? v / total : 1 / 12))];
-  }));
-// Calendar month (0 = January) to its place in a fiscal year that starts in September.
-const FISCAL_SLOT = (month: number) => (month + 12 - 8) % 12;
+const BASELINE_MONTH: Record<string, number> = Object.fromEntries(
+  Object.entries(MONTHLY).map(([route, counts]) =>
+    [route, counts.slice(FY).reduce((a, v) => a + v, 0) / 12]));
 
 export default function NetworkMap({
   forecast, todayProfit, fareGain, selected, onSelect, playing, onTogglePlay,
@@ -106,8 +102,6 @@ export default function NetworkMap({
   playing: boolean;
   onTogglePlay: () => void;
 }) {
-  const months = map.months as string[];
-  const nowIndex = months.length - 1;        // the last month actually flown
   const isForecast = selected > 0;
   const step = forecast[selected - 1];
 
@@ -187,23 +181,20 @@ export default function NetworkMap({
     route,
     geometry: geometryFor(route),
     flightsPerMonth: isForecast
-      ? (step?.flights[route.Route] ?? 0)
-        * (SEASONAL_SHARE[route.Route]?.[FISCAL_SLOT(step.month)] ?? 1 / 12)
-      : (MONTHLY[route.Route]?.[nowIndex] ?? 0),
-  })).filter(r => r.geometry && r.flightsPerMonth > 0), [isForecast, step, nowIndex]);
+      ? (step?.flights[route.Route] ?? 0) / 12
+      : (BASELINE_MONTH[route.Route] ?? 0),
+  })).filter(r => r.geometry && r.flightsPerMonth > 0), [isForecast, step]);
 
 
   const total = drawn.reduce((a, r) => a + r.flightsPerMonth, 0);
   const totals = map.monthlyTotals as number[];
-  const now = totals[nowIndex];
+  const now = totals.slice(FY).reduce((a, v) => a + v, 0) / 12;   // FY25-26 average month
   // Sep 2024 - Feb 2025 is the pre-expansion window the rollback aims at, and is
   // the only fair yardstick for where the airline stands today.
   const preExpansion = totals.slice(0, 6).reduce((a, v) => a + v, 0) / 6;
   const change = preExpansion > 0 ? Math.round((total / preExpansion - 1) * 100) : 0;
-  // The same calendar month a year earlier, so August is judged against August.
-  const sameMonthLastYear = isForecast ? totals[FY + FISCAL_SLOT(step.month)] : 0;
-  const sameMonthChange = sameMonthLastYear > 0
-    ? Math.round((total / sameMonthLastYear - 1) * 100) : 0;
+  // Against FY25-26's own average month, which is what the first column shows.
+  const sameMonthChange = now > 0 ? Math.round((total / now - 1) * 100) : 0;
   // What the plan is for: a cut in flights is the means, the profit it recovers
   // is the point. The model restates FY25-26 at the chosen frequency, so this is
   // one year re-run, not a run rate and not something that compounds.
@@ -216,7 +207,7 @@ export default function NetworkMap({
            onPointerDown={onPointerDown} onPointerMove={onPointerMove}
            onPointerUp={endDrag} onPointerLeave={endDrag}
            role="img"
-           aria-label={`NorthByte network, ${isForecast ? `forecast ${step.label}` : `last month flown, ${monthLabel(months[nowIndex])}`}: ${Math.round(total)} flights in the month`}>
+           aria-label={`NorthByte network, ${isForecast ? `forecast ${step.label}` : 'FY25-26 as flown'}: ${Math.round(total)} flights in an average month`}>
         <Basemap />
 
         {drawn.map(({ route, geometry, flightsPerMonth }) => {
@@ -263,16 +254,14 @@ export default function NetworkMap({
       </div>
 
       <div className="mapReadout">
-        <small>{isForecast ? `Forecast · ${step.label}` : `Last month flown · ${monthLabel(months[nowIndex])}`}</small>
+        <small>{isForecast ? `Forecast · ${step.label}` : 'FY25-26 as flown'}</small>
         <b><Figure value={total} format={v => Math.round(v).toLocaleString('en-US')} /></b>
-        <span>flights in the month</span>
-        {/* Judged against the same month a year earlier, so August is not made to
-            look like a cut simply for being compared with February. */}
+        <span>flights in an average month</span>
         {isForecast && <span className="mapSame">
           {sameMonthChange === 0
             ? 'level with'
             : `${sameMonthChange > 0 ? '+' : '−'}${Math.abs(sameMonthChange)}% on`}
-          {' '}the same month last year
+          {' '}FY25-26
         </span>}
         <span className={`mapDelta ${isForecast && recovered > 0 ? 'up' : ''}`}>
           {isForecast
@@ -293,6 +282,7 @@ export default function NetworkMap({
         <span className={`fareChip ${fareGain < 0 ? 'neg' : ''}`}>{signed(fareGain)} from fares</span>}
       <span className="legendNote">
         One aircraft stands for about {Math.round(FLIGHTS_PER_PLANE)} flights a month.
+        Every figure is an average month; the real months vary seasonally.
       </span>
     </p>
   </div>;
@@ -394,7 +384,7 @@ function Timeline({ forecast, now, selected, onSelect, playing, onTogglePlay }: 
                 className={`tick ${index === 0 ? 'now' : 'ahead'} ${selected === index ? 'on' : ''}`}
                 onClick={() => onSelect(index)}
                 aria-label={index === 0
-                  ? `Last month flown, ${Math.round(value).toLocaleString('en-US')} flights`
+                  ? `FY25-26 as flown, ${Math.round(value).toLocaleString('en-US')} flights in an average month`
                   : `${stepOf.label}, ${Math.round(value).toLocaleString('en-US')} flights, tranche ${stepOf.tranche} applied`}
                 aria-pressed={selected === index}>
           <i style={{ height: `${Math.max(3, (value / peak) * 100)}%` }} />
@@ -403,12 +393,7 @@ function Timeline({ forecast, now, selected, onSelect, playing, onTogglePlay }: 
       })}
     </div>
     <div className="trackAxis">
-      <span>Last flown</span><span>+3 months</span><span>+6</span><span>+9</span><span>+12</span>
+      <span>FY25-26</span><span>+3 months</span><span>+6</span><span>+9</span><span>+12</span>
     </div>
   </div>;
-}
-
-function monthLabel(month: string) {
-  const [year, m] = month.split('-');
-  return `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1]} ${year}`;
 }

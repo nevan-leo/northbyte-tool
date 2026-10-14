@@ -24,6 +24,11 @@ export const constants = data.constants;
 export const presets = data.presets;
 export const drift = data.drift;
 export const COHORTS = ['Restore', 'Decide', 'Protect'] as const;
+
+/** The 38 stable routes' ticket revenue: what a fare change acts on. */
+export const protectTicketRevenue = routes
+  .filter(r => r.Cohort === 'Protect')
+  .reduce((a, r) => a + r.TicketRev, 0);
 export type Cohort = (typeof COHORTS)[number];
 
 export type Levers = {
@@ -214,22 +219,26 @@ export function breakevenRhoDown(levers: Levers) {
 /**
  * What FY26-27 looks like if nobody does anything.
  *
- * Doing nothing is not "this year again". Cost per flight rose 2.7% between the
- * two years in the data, while the average fare moved 0.3%, so standing still
- * costs money on its own. Two readings, both using rates measured from the raw
- * workbooks rather than assumed:
+ * Doing nothing is not "this year again", and the two readings use different
+ * bases on purpose:
  *
- *   held      flights stay where they are; costs drift, fares drift
- *   expanding the expansion carries on at last year's pace
+ *   held       flights stay where they are, so the honest rates are the
+ *              like-for-like ones from the 38 stable routes, which flew within
+ *              0.1% of the same schedule in both years: cost per flight +7.0%,
+ *              their own fares +3.5% carried on the stable ticket revenue.
+ *   expanding  the expansion carries on, so the network rates apply, mix and
+ *              all: cost +23.5% against revenue +5.1%.
  *
- * This is an extrapolation of two observed years, not a forecast of demand.
+ * An extrapolation of two observed years, not a forecast of demand.
  */
 export function doNothing() {
   const revenue = constants.netRevenueToday;
   const cost = routes.reduce((a, r) => a + r.Cost, 0);
   const gates = constants.gatesForecast;
+  const stableTicketRevenue = protectTicketRevenue;
   return {
-    held: revenue * (1 + drift.fareGrowth) - cost * (1 + drift.costPerFlightGrowth) - gates,
+    held: revenue + stableTicketRevenue * drift.stableFareGrowth
+          - cost * (1 + drift.stableCostPerFlightGrowth) - gates,
     expanding: revenue * (1 + drift.revenueGrowth) - cost * (1 + drift.costGrowth) - gates,
   };
 }
@@ -287,6 +296,4 @@ export function ceiling(levers: Levers, fareCeilingPct: number) {
   return { profit: best.profit, target: best.target, short: best.target - best.profit };
 }
 
-export const protectTicketRevenue = routes
-  .filter(r => r.Cohort === 'Protect')
-  .reduce((a, r) => a + r.TicketRev, 0);
+

@@ -23,8 +23,9 @@ const PROTECT = routes.filter(r => r.Cohort === 'Protect');
 const preExpansion = (route: { Flights_PreSepFeb: number }) => route.Flights_PreSepFeb * 2;
 const PROTECT_TICKETS = PROTECT.reduce((a, r) => a + r.Tickets, 0);
 const PROTECT_FARE = PROTECT.reduce((a, r) => a + r.TicketRev, 0) / PROTECT_TICKETS;
-// The stable routes moved their own prices by 1.9-6.4% over the two years, so
-// anything past that is outside what the data can speak to.
+// The stable routes moved their own prices by 1.9-6.4% route by route (3.5% on
+// average) while flying the same schedule, so anything past that range is
+// outside what the data can speak to.
 const FARE_EVIDENCE_CEILING = 6.4;
 const FARE_MAX = 10;
 
@@ -38,14 +39,16 @@ export const RHO_SCENARIOS = [
 ] as const;
 
 export const ELASTICITIES = [
-  { value: 0, name: 'No response', note: 'our data' },
+  { value: 0, name: 'No response',
+    note: 'stable routes raised prices 3.5%, tickets per flight flat — one year only' },
   { value: -0.5, name: 'Half', note: 'illustrative' },
   { value: -0.88, name: 'National average', note: 'IATA/InterVISTAS, illustrative' },
   { value: -1.54, name: 'Route level', note: 'IATA/InterVISTAS, illustrative' },
 ] as const;
 
-export default function LeverPanel({ levers, set, result, onNothing, onPlan,
+export default function LeverPanel({ section, levers, set, result, onNothing, onPlan,
                                      drifting, atPlan, animating }: {
+  section: 'solutions' | 'rail';
   levers: Levers;
   set: <K extends keyof Levers>(key: K, value: Levers[K]) => void;
   result: Scenario;
@@ -100,12 +103,13 @@ export default function LeverPanel({ levers, set, result, onNothing, onPlan,
   const axis = Math.max(1, ...Object.values(impacts)
     .flatMap(i => [Math.abs(i.value), Math.abs(i.low), Math.abs(i.high)]));
 
-  return <aside className={`levers ${animating ? 'animating' : ''}`}>
-    <div className="sectionhead"><span>Our four solutions</span></div>
-
-    <div className="filterrow stateButtons">
-      <button className={`pill ${drifting ? 'active' : ''}`} onClick={onNothing}>Do nothing</button>
-      <button className={`pill ${atPlan ? 'active' : ''}`} onClick={onPlan}>Our plan</button>
+  if (section === 'solutions') return <div className={`solutionRow ${animating ? 'animating' : ''}`}>
+    <div className="solutionRowHead">
+      <div className="sectionhead"><span>Our four solutions</span></div>
+      <div className="filterrow stateButtons">
+        <button className={`pill ${drifting ? 'active' : ''}`} onClick={onNothing}>Do nothing</button>
+        <button className={`pill ${atPlan ? 'active' : ''}`} onClick={onPlan}>Our plan</button>
+      </div>
     </div>
 
     <Solution n={1} title="Roll back the doubled routes"
@@ -129,10 +133,10 @@ export default function LeverPanel({ levers, set, result, onNothing, onPlan,
              marks={[{ at: 0, label: 'Today' },
                      { at: presets.costPassThroughFarePct, label: 'Our plan' }]}
              shadeFrom={FARE_EVIDENCE_CEILING}
-             shadeTitle="Beyond what our data shows: the stable routes moved their own prices by 1.9–6.4%"
+             shadeTitle="Beyond what the data shows: the stable routes moved their own prices by 1.9–6.4% route by route, 3.5% on average"
              onChange={v => set('farePct', v)} />
       {levers.farePct > FARE_EVIDENCE_CEILING &&
-        <p className="line warn">Beyond what our data shows — the stable routes moved their own prices by 1.9–6.4%.</p>}
+        <p className="line warn">Beyond what the data shows — the stable routes moved their own prices by 1.9–6.4%, 3.5% on average.</p>}
     </Solution>
 
     <Solution n={3} title="Fly the new routes less"
@@ -160,7 +164,9 @@ export default function LeverPanel({ levers, set, result, onNothing, onPlan,
         <span>Hand back Halifax A3 and Ottawa A2, effective at the January renewal</span>
       </label>
     </Solution>
+  </div>;
 
+  return <aside className="rail">
     <section className="pillar selectors">
       <h3>If we cut flights</h3>
       <div className="choiceList">

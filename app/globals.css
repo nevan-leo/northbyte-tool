@@ -453,3 +453,40 @@ button { cursor:pointer; }
 .recipeLabel { color:var(--ink-2); }
 .recipe b { text-align:right; font-family:var(--font-geist-mono),monospace; font-variant-numeric:tabular-nums; }
 .mapSame { display:block; font-size:var(--t-small); color:var(--ink-3); margin-top:var(--s1); }
+
+/* ---------------------------------------------------------- dashboard --- */
+.dashboard { display:grid; grid-template-columns:minmax(0,1fr) 340px;
+  grid-template-areas:'solutions solutions' 'map rail'; gap:var(--s5); margin-top:var(--s5); }
+.solutionRow { grid-area:solutions; display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:var(--s4); align-items:start; }
+.solutionRowHead { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between;
+  gap:var(--s4); }
+.solutionRowHead .sectionhead { margin:0; }
+.solutionRowHead .stateButtons { margin:0; }
+.dashboard .mapPanel { grid-area:map; margin-top:0; }
+.rail { grid-area:rail; display:flex; flex-direction:column; gap:var(--s4);
+  border:1px solid var(--line); border-radius:var(--r); padding:var(--s5); min-width:0; }
+.rail .pillar { padding-top:0; border-top:0; }
+.rail .lands { margin-top:0; }
+
+/* each solution is a card now, not a stacked block */
+.solutionRow .solution { border:1px solid var(--line); border-radius:var(--r);
+  padding:var(--s4); margin:0; background:var(--paper); min-width:0; }
+.solutionRow .solution h3 { margin-bottom:var(--s3); }
+.solutionRow .solutionHead { display:block; }
+.solutionRow .impact { margin-top:var(--s3); flex:none; text-align:left; }
+.solutionRow .impact b { text-align:left; }
+.solutionRow .readout { font-size:var(--t-h2); }
+.solutionRow .line { font-size:11px; }
+
+@media (max-width:1280px) {
+  .dashboard { grid-template-columns:minmax(0,1fr); grid-template-areas:'solutions' 'map' 'rail'; }
+  .solutionRow { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:720px) {
+  .solutionRow { grid-template-columns:minmax(0,1fr); }
+  .solutionRowHead { flex-wrap:wrap; }
+}
+.solutionRowHead .stateButtons .pill { padding:var(--s2) var(--s4); white-space:nowrap; }
+.solutionRow .solution { display:flex; flex-direction:column; }
+.solutionRow .solution .line { margin-top:auto; padding-top:var(--s3); }

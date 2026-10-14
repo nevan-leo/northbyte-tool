@@ -288,7 +288,7 @@
    "DepRegion": "Ontario/Quebec",
    "Cohort": "Decide",
    "LaunchDate": "2025-03-02",
-   "Tranche": 4.0,
+   "Tranche": 1,
    "Flights_FY2526": 544.0,
    "Flights_PreSepFeb": 0.0,
    "Tickets": 1697.0,
@@ -474,7 +474,7 @@
    "DepRegion": "Ontario/Quebec",
    "Cohort": "Decide",
    "LaunchDate": "2025-03-01",
-   "Tranche": 4.0,
+   "Tranche": 1,
    "Flights_FY2526": 546.0,
    "Flights_PreSepFeb": 0.0,
    "Tickets": 1723.0,
@@ -1678,9 +1678,12 @@
   }
  ],
  "drift": {
+  "stableFareGrowth": 0.0346,
+  "stableCostPerFlightGrowth": 0.0704,
+  "stableTicketsPerFlightGrowth": 0.007,
   "flightsGrowth": 0.2033,
   "costGrowth": 0.2352,
-  "costPerFlightGrowth": 0.0266,
+  "costPerFlightGrowth": 0.0265,
   "revenueGrowth": 0.0514,
   "fareGrowth": 0.0031
  },

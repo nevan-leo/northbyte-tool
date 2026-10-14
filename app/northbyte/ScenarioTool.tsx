@@ -171,35 +171,41 @@ export default function ScenarioTool() {
       </div>
 
       <p className="doNothing">
-        <b>Do nothing</b> and FY26-27 is {money(nothing.held)} with flights held: cost per flight rose
-        {' '}{(drift.costPerFlightGrowth * 100).toFixed(1)}% between the two years in the data
-        while the average fare moved {(drift.fareGrowth * 100).toFixed(1)}%. Carry on
-        expanding at last year&apos;s pace and it is {money(nothing.expanding)}.
+        <b>Do nothing</b> and FY26-27 is {money(nothing.held)} with flights held. The basis is
+        the 38 stable routes, which flew within 0.1% of the same schedule in both years:
+        cost per flight {' '}+{(drift.stableCostPerFlightGrowth * 100).toFixed(1)}% against their
+        own fares at +{(drift.stableFareGrowth * 100).toFixed(1)}%, with tickets per flight flat.
+        Carry on expanding at last year&apos;s pace and it is {money(nothing.expanding)}, on the
+        network basis where the mix changes.
         <small>
           Two observed years extrapolated, not a forecast of demand. The <b>Do nothing</b>
           button runs the second case on the map.
         </small>
       </p>
 
-      {tab === 'map' && <div className="scenarioGrid viewFade" key="map">
-        <div onPointerDown={() => setBusy(true)}
-             onPointerUp={() => setBusy(false)}
-             onPointerCancel={() => setBusy(false)}>
-          <LeverPanel levers={levers} set={set} result={result}
-                      onNothing={() => { glideTo(TODAY, 900, true); setStep(FORECAST_MONTHS); }}
-                      onPlan={() => glideTo(PLAN)}
-                      drifting={drifting} atPlan={atPlan && !drifting} animating={busy} />
-        </div>
+      {tab === 'map' && <div className="dashboard viewFade" key="map"
+           onPointerDown={() => setBusy(true)}
+           onPointerUp={() => setBusy(false)}
+           onPointerCancel={() => setBusy(false)}>
+        <LeverPanel section="solutions" levers={levers} set={set} result={result}
+                    onNothing={() => { glideTo(TODAY, 900, true); setStep(FORECAST_MONTHS); }}
+                    onPlan={() => glideTo(PLAN)}
+                    drifting={drifting} atPlan={atPlan && !drifting} animating={busy} />
 
         <div className="panel mapPanel">
           <div className="sectionhead">
             <span>Where the flights go</span>
-            <small>Flights per month · the twelve months ahead</small>
+            <small>Flights in an average month · the twelve months ahead</small>
           </div>
           <NetworkMap forecast={forecast} todayProfit={today.profit} fareGain={result.fareGain}
                       selected={step} onSelect={setStep}
                       playing={playing} onTogglePlay={() => setPlaying(p => !p)} />
         </div>
+
+        <LeverPanel section="rail" levers={levers} set={set} result={result}
+                    onNothing={() => { glideTo(TODAY, 900, true); setStep(FORECAST_MONTHS); }}
+                    onPlan={() => glideTo(PLAN)}
+                    drifting={drifting} atPlan={atPlan && !drifting} animating={busy} />
       </div>}
 
       {tab === 'evidence' && <EvidenceView levers={levers} result={result} today={today} />}

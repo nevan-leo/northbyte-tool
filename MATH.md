@@ -92,9 +92,31 @@ $$
 $(1+p)$ is the price, $(1 + e\,p)$ the quantity that survives it. Only the
 Protect cohort gets this term.
 
+### One basis, stated
+
+Two true statements that look contradictory, because they are measured on
+different sets of routes:
+
+| | 38 stable routes | all 54 routes |
+| --- | --- | --- |
+| Flights | **+0.1%** | +20.3% |
+| Average fare | **+3.46%** | +0.31% |
+| Cost per flight | **+7.04%** | +2.65% |
+| Tickets per flight | **+0.7%** | −12.6% |
+
+**The stable routes are the like-for-like basis** and the one the deck should
+quote: they flew within 0.1% of the same schedule in both years, so nothing is
+being hidden by mix. The network figures are dragged down by the expansion
+adding cheaper, shorter flying — which is itself a finding, not a correction.
+
+So: **the stable routes raised prices 3.5% (1.9–6.4% route by route) and tickets
+per flight did not move.** That is the only elasticity evidence in the data, it
+covers one year, and it is why $e = 0$ is offered as the measured case rather
+than as an assumption of convenience.
+
 | Selector | $e$ | Source |
 | --- | --- | --- |
-| No response | $0$ | what the data shows: fares moved +0.31% in two years, so there is no response to measure |
+| No response | $0$ | stable routes raised prices 3.5%, tickets per flight flat — one year only |
 | Half | $-0.5$ | illustrative |
 | National average | $-0.88$ | IATA/InterVISTAS, illustrative |
 | Route level | $-1.54$ | IATA/InterVISTAS, illustrative |
@@ -204,18 +226,17 @@ close it depends entirely on $e$:
 
 ## 9. Doing nothing
 
-Measured across the two fiscal years in the raw workbooks:
+Two readings, each on the basis that fits it.
 
-| | FY24-25 | FY25-26 | |
-| --- | --- | --- | --- |
-| Flights | 13,072 | 15,729 | **+20.33%** |
-| Cost | $192.99M | $238.38M | +23.52% |
-| Cost per flight | $14,763 | $15,155 | **+2.66%** |
-| Average fare | $1,029.51 | $1,032.75 | **+0.31%** |
+**Flights held** — nothing is added, so the like-for-like rates from the stable
+routes apply: cost per flight +7.04%, their own fares +3.46% on $B = \$142.4$M
+of stable ticket revenue.
 
 $$
-\Pi_{\text{hold}} = R(1 + 0.0031) - C(1 + 0.0266) - \Gamma = -\$64.6\text{M}
+\Pi_{\text{hold}} = R + B(0.0346) - C(1 + 0.0704) - \Gamma = -\$70.7\text{M}
 $$
+**The expansion carries on** — the mix changes again, so the network rates apply:
+
 $$
 \Pi_{\text{expand}} = R(1 + 0.0514) - C(1 + 0.2352) - \Gamma = -\$105.1\text{M}
 $$
@@ -226,17 +247,23 @@ An extrapolation of two observed years, not a forecast of demand.
 
 ## 10. The forecast months
 
-The timeline spreads an annual figure across twelve months using each route's own
-share of the year, measured from FY25-26, because a year's flights do not fall
-evenly: August flew 1,474 and February 1,103.
+Every figure on the map is an **average month**: the annual flights at that stage
+of the plan, divided by twelve. Real calendar months are not comparable with each
+other — August flew 1,474 and February 1,103 — so showing them made the plan's
+effect wobble up and down when what it does is come steadily down.
 
 $$
-\text{flights in month } m = f_1 \cdot \frac{\text{that route's flights in } m \text{ last year}}{\text{its flights across the year}}
+\text{shown for month } m = \frac{f_1(\text{tranches landed by } m)}{12}
 $$
 
-Each forecast month is therefore compared against **the same calendar month a
-year earlier**, not against an annual average. One tranche of the rollback lands
-each quarter, capped by where the sliders are.
+The first column is FY25-26 as flown on the same basis, 1,311 a month, and each
+forecast month is read against it. Seasonality is a finding in its own right and
+sits in the evidence tab rather than in this number.
+
+**Tranche order.** One tranche lands a quarter. Ottawa–Montréal is in the first,
+not the fourth: it loses **\$3,624 a flight**, so the nine months between T1 and
+T4 would be 818 flights and **\$2.96M** of avoidable loss. London and Moncton
+stay in T4, because they are being reduced rather than exited.
 
 ---
 

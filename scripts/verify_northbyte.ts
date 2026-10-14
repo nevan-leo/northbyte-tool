@@ -132,7 +132,8 @@ for (const [value, want] of formatting) {
 // "What if we carry on" is the first question anyone asks, and the answer is
 // not this year repeated: cost per flight rose while fares stood still.
 const nothing = doNothing();
-check('do nothing, flights held', nothing.held, -64.6 * M, 0.2 * M);
+// Like for like on the stable routes: cost per flight +7.0% against fares +3.5%.
+check('do nothing, flights held', nothing.held, -70.7 * M, 0.2 * M);
 check('do nothing, expansion continues', nothing.expanding, -105.1 * M, 0.3 * M);
 const doingNothingIsWorse = nothing.held < today.profit && nothing.expanding < nothing.held;
 if (!doingNothingIsWorse) failures += 1;
