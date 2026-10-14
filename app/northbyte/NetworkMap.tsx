@@ -265,7 +265,7 @@ export default function NetworkMap({
         </span>}
         <span className={`mapDelta ${isForecast && recovered > 0 ? 'up' : ''}`}>
           {isForecast
-            ? <><Figure value={recovered} format={signed} /> if this frequency held for a full year</>
+            ? <>Profit this frequency would earn over a year: <Figure value={recovered} format={signed} /></>
             : `${change < 0 ? '−' : '+'}${Math.abs(change)}% flights vs the pre-expansion months`}
         </span>
       </div>
@@ -275,9 +275,9 @@ export default function NetworkMap({
               playing={playing} onTogglePlay={onTogglePlay} />
 
     <p className="legend">
-      <i className="rule restore" /> Restore <small>10 routes, the loss</small>
-      <i className="rule decide" /> Decide <small>6, re-cut or exited</small>
-      <i className="rule protect" /> Protect <small>38, held flat</small>
+      <i className="rule restore" /> Doubled routes <small>10, the loss</small>
+      <i className="rule decide" /> New routes <small>6, re-cut or exited</small>
+      <i className="rule protect" /> Stable routes <small>38, held flat</small>
       {Math.abs(fareGain) > 50_000 &&
         <span className={`fareChip ${fareGain < 0 ? 'neg' : ''}`}>{signed(fareGain)} from fares</span>}
       <span className="legendNote">

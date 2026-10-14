@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  scenario, recipe, routes, constants, presets, COHORTS, requiredFarePct,
+  scenario, recipe, routes, constants, presets, requiredFarePct,
   protectTicketRevenue, type Levers, type Scenario,
 } from './model';
 
@@ -16,7 +16,6 @@ const M = 1_000_000;
 const WEEKS = 52;
 
 const RESTORE = routes.filter(r => r.Cohort === 'Restore');
-const DECIDE = routes.filter(r => r.Cohort === 'Decide');
 const PROTECT = routes.filter(r => r.Cohort === 'Protect');
 
 /** Pre-expansion frequency, annualised from the Sep 2024 - Feb 2025 half year. */
@@ -39,11 +38,10 @@ export const RHO_SCENARIOS = [
 ] as const;
 
 export const ELASTICITIES = [
-  { value: 0, name: 'No response',
-    note: 'stable routes raised prices 3.5%, tickets per flight flat — one year only' },
+  { value: 0, name: 'No response', note: 'our data, one year' },
   { value: -0.5, name: 'Half', note: 'illustrative' },
-  { value: -0.88, name: 'National average', note: 'IATA/InterVISTAS, illustrative' },
-  { value: -1.54, name: 'Route level', note: 'IATA/InterVISTAS, illustrative' },
+  { value: -0.88, name: 'National average, −0.88', note: 'IATA/InterVISTAS' },
+  { value: -1.54, name: 'Route level, −1.54', note: 'IATA/InterVISTAS' },
 ] as const;
 
 export default function LeverPanel({ section, levers, set, result, onNothing, onPlan,
@@ -64,10 +62,8 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
     .filter(r => r.route.Cohort === cohort)
     .reduce((a, r) => a + r.flights, 0);
 
-  const extraNow = RESTORE.reduce((a, r) => a + r.Flights_FY2526 - preExpansion(r), 0) / WEEKS;
   const extraLive = (cohortFlights('Restore')
     - RESTORE.reduce((a, r) => a + preExpansion(r), 0)) / WEEKS;
-  const decideNow = DECIDE.reduce((a, r) => a + r.Flights_FY2526, 0) / WEEKS;
   const decideLive = cohortFlights('Decide') / WEEKS;
   const farePerTicket = PROTECT_FARE * (levers.farePct / 100);
 
@@ -114,7 +110,7 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
 
     <Solution n={1} title="Roll back the doubled routes"
               impact={impacts.rollback} axis={axis}
-              readout={<>{extraLive.toFixed(0)} extra flights a week<small> of {extraNow.toFixed(0)} today</small></>}>
+              readout={<>{extraLive.toFixed(0)} extra flights a week</>}>
       <Track label="Extra flights on the 10 doubled routes, against before the expansion"
              value={levers.restoreLevel * 100} min={0} max={100} marks={[{ at: 0, label: 'Today' }, { at: 100, label: 'Our plan' }]}
              onChange={v => set('restoreLevel', v / 100)} />
@@ -127,7 +123,7 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
     <Solution n={2} title="Raise fares on the stable routes"
               impact={impacts.fares} axis={axis}
               readout={<>${(PROTECT_FARE + farePerTicket).toFixed(0)} a ticket
-                <small> +${farePerTicket.toFixed(0)}, {levers.farePct.toFixed(2)}%</small></>}>
+                <small>+${farePerTicket.toFixed(0)}, {levers.farePct.toFixed(2)}%</small></>}>
       <Track label={`Average ticket price on the 38 stable routes, $${PROTECT_FARE.toFixed(0)} today`}
              value={levers.farePct} min={0} max={FARE_MAX} step={0.05}
              marks={[{ at: 0, label: 'Today' },
@@ -141,7 +137,7 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
 
     <Solution n={3} title="Fly the new routes less"
               impact={impacts.decide} axis={axis}
-              readout={<>{decideLive.toFixed(0)} flights a week<small> of {decideNow.toFixed(0)} today</small></>}>
+              readout={<>{decideLive.toFixed(0)} flights a week</>}>
       <Track label="Flights a week on the 6 new routes"
              value={levers.decideLevel * 50} min={0} max={100}
              marks={[{ at: 0, label: 'Today' }, { at: 50, label: 'Our plan' }, { at: 100, label: 'All exited' }]}
@@ -156,8 +152,8 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
     <Solution n={4} title="Hand back the idle gates"
               impact={impacts.gates} axis={axis}
               readout={levers.releaseIdleGates
-                ? <>−{money(constants.idleGatesReleasable)} a year</>
-                : <>held<small> no saving</small></>}>
+                ? <>Saves {money(constants.idleGatesReleasable)} a year</>
+                : <>Held<small>no saving</small></>}>
       <label className="toggle">
         <input type="checkbox" checked={levers.releaseIdleGates}
                onChange={e => set('releaseIdleGates', e.target.checked)} />
@@ -224,6 +220,7 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
       </div>
 
       <h3 className="second">If we raise prices</h3>
+      <p className="note">Route level applies if rivals don&apos;t match our fares.</p>
       <div className="choiceList">
         {ELASTICITIES.map(option => (
           <button key={option.value} className={`choice ${levers.elasticity === option.value ? 'on' : ''}`}
@@ -235,24 +232,7 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
     </section>
 
     <details className="advanced">
-      <summary>Advanced</summary>
-      <label>Mode
-        <select value={levers.mode} onChange={e => set('mode', e.target.value as Levers['mode'])}>
-          <option value="preset">Preset plan</option>
-          <option value="manual">Manual</option>
-        </select>
-      </label>
-      {levers.mode === 'manual' && COHORTS.map(cohort => (
-        <Track key={cohort} label={`${cohort} flights, % of today`}
-               value={levers.multipliers[cohort] * 100} min={0} max={150}
-               onChange={v => set('multipliers', { ...levers.multipliers, [cohort]: v / 100 })} />
-      ))}
-      <Track label={`Revenue lost per flight cut, ρ ${levers.rhoDown.toFixed(2)}`}
-             value={levers.rhoDown * 100} min={0} max={100} step={0.1}
-             onChange={v => set('rhoDown', v / 100)} />
-      <Track label={`Elasticity ${levers.elasticity.toFixed(2)}`}
-             value={levers.elasticity * 100} min={-154} max={0}
-             onChange={v => set('elasticity', v / 100)} />
+      <summary>For Q&amp;A</summary>
       <Track label={`Crew cost shed ${Math.round(levers.crewShed * 100)}%`}
              value={levers.crewShed * 100} min={0} max={100}
              onChange={v => set('crewShed', v / 100)} />
