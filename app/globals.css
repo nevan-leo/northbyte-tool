@@ -521,3 +521,5 @@ button { cursor:pointer; }
   background:var(--tan); }
 .marks i:first-child::before { left:0; }
 .marks i:last-child::before { left:100%; }
+.sectionhead.stacked { display:block; }
+.sectionhead.stacked small { display:block; margin-top:2px; }

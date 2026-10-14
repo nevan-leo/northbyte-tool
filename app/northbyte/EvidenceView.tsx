@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { Figure } from './Figure';
 import {
-  routes, COHORTS, requiredFarePct, breakevenRhoDown,
+  scenario, routes, COHORTS, requiredFarePct,
   protectTicketRevenue, type Levers, type Cohort, type Scenario,
 } from './model';
 
@@ -18,6 +18,9 @@ const money = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(v / M).toFixed(1)
 const count = (v: number) => Math.round(v).toLocaleString('en-US');
 const pct = (v: number) => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}%`;
 const sign = (v: number) => (v < 0 ? 'neg' : v > 0 ? 'pos' : '');
+const COHORT_NAME: Record<Cohort, string> = {
+  Restore: 'Doubled routes', Decide: 'New routes', Protect: 'Stable routes',
+};
 
 export default function EvidenceView({ levers, result, today }:
     { levers: Levers; result: Scenario; today: Scenario }) {
@@ -27,7 +30,17 @@ export default function EvidenceView({ levers, result, today }:
   const toggleSort = (key: SortKey) =>
     setSort(current => ({ key, dir: current.key === key ? (current.dir === 1 ? -1 : 1) : 1 }));
 
-  const breakevenRho = useMemo(() => breakevenRhoDown(levers), [levers]);
+  // The rollback's own worst case answers the question a break-even rho was
+  // gesturing at: it still earns this much even at rho = 1.
+  const rollbackAtWorst = useMemo(() => {
+    const floor: Levers = { ...levers, mode: 'preset', phase: 1, tranche: 4,
+      restoreLevel: 0, decideLevel: 0, farePct: 0, releaseIdleGates: false, rhoDown: 1 };
+    return scenario({ ...floor, restoreLevel: 1 }).profit - scenario(floor).profit;
+  }, [levers]);
+  const stable = routes.filter(r => r.Cohort === 'Protect');
+  const stableTicketsPerFlight = stable.reduce((a, r) => a + r.Tickets, 0)
+    / stable.reduce((a, r) => a + r.Flights_FY2526, 0);
+  const stableBreakEven = stable.reduce((a, r) => a + r.CostPerFlight / r.AvgFare, 0) / stable.length;
   const fareForBreakeven = requiredFarePct(result.gapToBreakeven, levers.elasticity, protectTicketRevenue);
   const fareForTarget = requiredFarePct(Math.max(0, result.gapToTarget), levers.elasticity, protectTicketRevenue);
 
@@ -70,13 +83,6 @@ export default function EvidenceView({ levers, result, today }:
     : sort.dir === 1 ? <ArrowUp size={11} aria-hidden className="sortIcon" />
     : <ArrowDown size={11} aria-hidden className="sortIcon" />;
 
-  const worst = useMemo(
-    () => [...result.byRoute].sort((a, b) => a.contribution - b.contribution).slice(0, 10),
-    [result]);
-  const worstScale = Math.max(...worst.map(r =>
-    Math.max(Math.abs(r.contribution), Math.abs(today.byRoute.find(t => t.route.Route === r.route.Route)!.contribution))), 1);
-  const underFilled = result.byRoute.filter(r => r.underFilled).length;
-
   return <div className="nbMain dataView viewFade">
     <div className="kpiStrip">
       <Kpi label="Flights" value={result.flights} format={count} today={count(today.flights)} />
@@ -84,10 +90,7 @@ export default function EvidenceView({ levers, result, today }:
       <Kpi label="Operating cost" value={result.cost} format={money} today={money(today.cost)} />
       <Kpi label="Contribution" value={result.contribution} format={money} today={money(today.contribution)} tone={sign(result.contribution)} />
       <Kpi label="Gates" value={result.gates} format={money} today={money(today.gates)} />
-      <Kpi label="Profit after gates" value={result.profit} format={money} today={money(today.profit)} tone={sign(result.profit)} wide />
       <Kpi label="Margin" value={result.margin * 100} format={pct} today={pct(today.margin * 100)} tone={sign(result.margin)} />
-      <Kpi label="Left to break even" value={result.gapToBreakeven} format={v => v > 0.05 ? money(v) : 'cleared'}
-           today={money(Math.max(0, -today.profit))} tone={result.gapToBreakeven > 0 ? 'neg' : 'pos'} />
       <Kpi label={`Left to the ${levers.targetMarginPct.toFixed(1)}% target`}
            value={result.gapToTarget} format={v => v > 0.05 ? money(v) : 'cleared'}
            today={money(today.target - today.profit)} tone={result.gapToTarget > 0 ? 'neg' : 'pos'} />
@@ -103,30 +106,25 @@ export default function EvidenceView({ levers, result, today }:
           <div className="sectionhead"><span>Readouts</span></div>
           <div className="readoutGrid">
             <div>
-              <small>Protect fare rise to break even</small>
-              <b>{result.gapToBreakeven <= 0 ? 'already there'
-                : fareForBreakeven === null ? 'not reachable by fares alone'
-                : `${fareForBreakeven.toFixed(2)}%`}</b>
-              <span>on {money(protectTicketRevenue)} of stable ticket revenue</span>
+              <small>Fares needed on the stable routes</small>
+              <b>{result.gapToBreakeven <= 0.05 ? 'none, break even is covered'
+                : fareForBreakeven === null ? 'not reachable by fares'
+                : `${fareForBreakeven.toFixed(2)}% to break even`}</b>
+              <span>
+                {result.gapToTarget > 0.05 && fareForTarget !== null
+                  ? `${fareForTarget.toFixed(2)}% to reach the ${levers.targetMarginPct.toFixed(1)}% target`
+                  : `on ${money(protectTicketRevenue)} of stable ticket revenue`}
+              </span>
             </div>
             <div>
-              <small>Protect fare rise to hit target</small>
-              <b>{result.gapToTarget <= 0 ? 'already there'
-                : fareForTarget === null ? 'not reachable by fares alone'
-                : `${fareForTarget.toFixed(2)}%`}</b>
-              <span>target {money(result.target)} = {levers.targetMarginPct.toFixed(1)}% of today&apos;s revenue</span>
+              <small>If revenue leaves with the flights</small>
+              <b className={rollbackAtWorst > 0 ? 'pos' : 'neg'}>{money(rollbackAtWorst)}</b>
+              <span>the rollback still earns this at ρ = 1, its own worst case</span>
             </div>
             <div>
-              <small>Breakeven revenue response</small>
-              <b>{breakevenRho === null ? (result.profit >= 0 ? 'holds at any ρ' : 'never breaks even')
-                : `ρ = ${breakevenRho.toFixed(2)}`}</b>
-              <span>{breakevenRho === null ? 'within the 0–1 range'
-                : `profit stays positive while under ${(breakevenRho * 100).toFixed(0)}% of flights cut flows through to revenue`}</span>
-            </div>
-            <div>
-              <small>Routes below break-even fill</small>
-              <b className={underFilled > 0 ? 'neg' : 'pos'}>{underFilled} of {result.byRoute.filter(r => r.flights > 0).length}</b>
-              <span>tickets per flight under cost per flight ÷ average fare</span>
+              <small>Tickets per flight, stable routes</small>
+              <b>{stableTicketsPerFlight.toFixed(1)}</b>
+              <span>against {stableBreakEven.toFixed(1)} needed to cover a flight</span>
             </div>
           </div>
         </div>
@@ -138,10 +136,11 @@ export default function EvidenceView({ levers, result, today }:
             <thead><tr><th>Cohort</th><th>Routes</th><th>Flights</th><th>Revenue</th><th>Cost</th><th>Contribution</th></tr></thead>
             <tbody>
               {COHORTS.map(cohort => {
+                const name = COHORT_NAME[cohort];
                 const now = today.byCohort[cohort], next = result.byCohort[cohort];
                 const n = routes.filter(r => r.Cohort === cohort).length;
                 return <tr key={cohort}>
-                  <td><b>{cohort}</b></td>
+                  <td><b>{name}</b></td>
                   <td>{n}</td>
                   <td>{count(now.flights)} → <b>{count(next.flights)}</b></td>
                   <td>{money(now.revenue)} → <b>{money(next.revenue)}</b></td>
@@ -153,28 +152,6 @@ export default function EvidenceView({ levers, result, today }:
             </tbody>
           </table>
           </div>
-        </div>
-
-        <div className="panel">
-          <div className="sectionhead"><span>Ten worst routes</span><small>CONTRIBUTION</small></div>
-          <div className="bars">
-            {worst.map(r => {
-              const now = today.byRoute.find(t => t.route.Route === r.route.Route)!;
-              return <div key={r.route.Route} className="barRow">
-                <span className="barLabel" title={`${r.route.Dep} → ${r.route.Arr}`}>{r.route.Route}</span>
-                <span className="barTrack">
-                  <i className={`bar ghost ${sign(now.contribution)}`}
-                     style={{ width: `${Math.abs(now.contribution) / worstScale * 100}%` }} />
-                  <i className={`bar ${r.route.Cohort.toLowerCase()} ${sign(r.contribution)}`}
-                     style={{ width: `${Math.abs(r.contribution) / worstScale * 100}%` }} />
-                </span>
-                <span className={`barValue ${sign(r.contribution)}`}>{money(r.contribution)}</span>
-              </div>;
-            })}
-          </div>
-          <p className="legend">Pale bar is today, solid bar is the scenario. Colour marks the cohort:
-            <i className="chip restore" /> Restore <i className="chip decide" /> Decide <i className="chip protect" /> Protect
-          </p>
         </div>
 
         <div className="panel">
@@ -194,20 +171,21 @@ export default function EvidenceView({ levers, result, today }:
                 <th>Revenue</th><th>Cost</th>
                 <th {...sortProps('contribution')}>Contribution{arrow('contribution')}</th>
                 <th {...sortProps('delta')}>Change{arrow('delta')}</th>
-                <th>Fill</th>
+                <th title="tickets per flight against the number needed to cover a flight">
+                  Tickets / needed</th>
               </tr></thead>
               <tbody>
                 {tableRows.map(r => {
                   const delta = r.contribution - r.todayRow.contribution;
                   return <tr key={r.route.Route}>
                     <td title={`${r.route.Dep} → ${r.route.Arr}`}><b>{r.route.Route}</b></td>
-                    <td><i className={`chip ${r.route.Cohort.toLowerCase()}`} />{r.route.Cohort}</td>
+                    <td><i className={`chip ${r.route.Cohort.toLowerCase()}`} />{COHORT_NAME[r.route.Cohort]}</td>
                     <td>{r.route.Tranche || '—'}</td>
                     <td>{count(r.todayRow.flights)} → <b>{count(r.flights)}</b></td>
                     <td>{money(r.revenue + r.fareGain)}</td>
                     <td>{money(r.cost)}</td>
                     <td className={sign(r.contribution)}>{money(r.contribution)}</td>
-                    <td className={sign(delta)}>{delta === 0 ? '—' : money(delta)}</td>
+                    <td className={sign(delta)}>{Math.abs(delta) < 50_000 ? '' : money(delta)}</td>
                     <td className={r.underFilled ? 'neg' : ''}>
                       {r.flights === 0 ? 'exited'
                         : `${r.ticketsPerFlight.toFixed(1)} / ${r.breakEvenTicketsPerFlight.toFixed(1)}`}
@@ -223,23 +201,34 @@ export default function EvidenceView({ levers, result, today }:
       <b>What is assumption, not measurement.</b>
       <ul>
         <li>ρ (revenue response), the fare elasticity and the {levers.targetMarginPct.toFixed(1)}% sustainable target are our assumptions. The target is NorthByte&apos;s own pre-expansion margin after gates.</li>
-        <li>No price response is measurable in the data: there is no price variation to measure it from.</li>
+        <li>One year of data, a narrow range, and part of the rise was inflation, so it cannot rule out the literature elasticities.</li>
         <li>Aircraft lease costs are not in the data and are not modelled. Crew shed at 100% assumes redeployment and no severance.</li>
-        <li>One ticket is treated as one passenger. Seat counts are absent, so load factor is never shown — fill is tickets per flight against the break-even count.</li>
-        <li>ρ is a local response, measured against the expansion. Pushed to an extreme — grounding a whole cohort in Advanced — it keeps 81% of the revenue while every cost disappears, which is an artefact of the assumption, not a finding.</li>
+        <li>Tickets, not passengers: the transaction file is not a manifest. Seat counts are absent, so load factor is never shown.</li>
         <li>Every profit figure restates FY25-26 at the chosen frequency: one year re-run, not a run rate. Nothing compounds and no second year is projected.</li>
         <li>These are scenarios, not forecasts, and nothing here establishes causation.</li>
       </ul>
+      <details className="advanced">
+        <summary>For Q&amp;A</summary>
+        <p className="note">
+          ρ is a local response, measured against the expansion. Pushed to an extreme —
+          grounding a whole cohort — it keeps 81% of the revenue while every cost
+          disappears, which is an artefact of the assumption, not a finding.
+        </p>
+        <p className="note">
+          Doing nothing: −$70.7M next year with flights held, −$105.1M if the expansion
+          carries on. Basis: the 38 stable routes, which flew within 0.1% of the same
+          schedule in both years — cost per flight +7.0% against their own fares +3.5%.
+        </p>
+      </details>
     </div>
 
     <div className="panel">
       <div className="sectionhead"><span>Seasonality</span><small>Second wave, not modelled</small></div>
       <p className="note">
-        The network already flies 28% fewer flights in Dec–Feb than Jun–Aug, while
-        St John&apos;s holds at 87% of its summer schedule through the winter, and the
-        seasonal pattern is worth optimising across the network. Neither is in the
-        numbers above: the plan works on annual frequency, so a month-by-month cut
-        would need a model this one does not have.
+        FY25-26 flew 8.4% more in Mar–Aug than Sep–Feb, and 14% fewer in Dec–Feb than
+        Jun–Aug. St John&apos;s trims by the same amount as the rest of the network, so
+        nothing in this data singles it out. <b>Not modelled:</b> the plan works on
+        annual frequency.
       </p>
     </div>
   </div>;

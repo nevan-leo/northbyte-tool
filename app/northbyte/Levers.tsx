@@ -32,7 +32,7 @@ export const RHO_SCENARIOS = [
   { key: 'High', rho: presets.rhoDown.High, name: 'Demand holds',
     note: 'revenue behaves as it did when flights were added' },
   { key: 'Mid', rho: presets.rhoDown.Mid, name: 'Same tickets per flight as before the expansion',
-    note: 'no route carries more tickets per flight than in Sep 2024 – Feb 2025' },
+    note: '' },
   { key: 'Low', rho: presets.rhoDown.Low, name: 'Revenue leaves with the flights',
     note: 'a stress case' },
 ] as const;
@@ -159,8 +159,8 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
   </div>;
 
   if (section === 'breakeven') return <section className="breakevenBox">
-      <div className="sectionhead"><span>How we break even</span>
-        <small>at the assumptions selected</small></div>
+      <div className="sectionhead stacked"><span>How we break even</span>
+        <small>At the assumptions selected</small></div>
 
       <p className="landsNow">
         <b className={result.profit < 0 ? 'neg' : 'pos'}>{money(result.profit)}</b>
@@ -210,7 +210,7 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
         {RHO_SCENARIOS.map(option => (
           <button key={option.key} className={`choice ${levers.rhoDown === option.rho ? 'on' : ''}`}
                   onClick={() => set('rhoDown', option.rho)}>
-            <b>{option.name}</b><small>{option.note}</small>
+            <b>{option.name}</b>{option.note && <small>{option.note}</small>}
           </button>
         ))}
       </div>
@@ -221,7 +221,7 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
         {ELASTICITIES.map(option => (
           <button key={option.value} className={`choice ${levers.elasticity === option.value ? 'on' : ''}`}
                   onClick={() => set('elasticity', option.value)}>
-            <b>{option.name}</b><small>{option.note}</small>
+            <b>{option.name}</b>{option.note && <small>{option.note}</small>}
           </button>
         ))}
       </div>

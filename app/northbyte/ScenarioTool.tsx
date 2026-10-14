@@ -142,7 +142,7 @@ export default function ScenarioTool() {
           <h1>What does it take<br />to stop losing money?</h1>
         </div>
         <p className="intro">
-          Flights grew 20%, revenue 4.8%, costs 23%. Pull the four solutions and watch
+          Flights grew 20.3%, revenue 5.1%, costs 23.5%. Pull the four solutions and watch
           the network and the profit move.
         </p>
       </section>
@@ -195,10 +195,7 @@ export default function ScenarioTool() {
                   onPlan={() => glideTo(PLAN)}
                   drifting={drifting} atPlan={atPlan && !drifting} animating={busy} />
 
-      <p className="doNothing">
-        <b>Do nothing:</b> {money(nothing.held)} next year, {money(nothing.expanding)} if the
-        expansion carries on. <small>Stable routes, cost per flight +7.0% against fares +3.5%.</small>
-      </p>
+
 
       {tab === 'map' && <div className="dashboard viewFade" key="map"
            onPointerDown={() => setBusy(true)}
