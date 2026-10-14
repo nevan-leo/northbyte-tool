@@ -192,8 +192,10 @@ trusting the prepared table.
 
 Seasonal evidence computed from the same load:
 
-- The network flies **28% fewer flights in Dec–Feb than Jun–Aug** (1,040 vs 1,447 a month).
-- **St John's holds at 87% of its summer schedule through the winter** (27 vs 31 a month).
+- Mar–Aug flies **8.4% more** than Sep–Feb (1,364 vs 1,258 a month), which is where
+  the 1.042 seasonal factor comes from.
+- Dec–Feb flies **14% fewer** than Jun–Aug (1,239 vs 1,447 a month), and **St John's
+  trims by the same 14%** — nothing in this data singles it out.
 
 ---
 
@@ -322,10 +324,9 @@ the model.
 | **4** | Hand back the idle gates | Release toggle, gate basis toggle | −$433,500 and/or the 2026-27 basis |
 | **5–6** | Seasonality | Seasonal baseline toggle, plus the evidence | **Not modelled route-by-route.** The panel states this outright |
 
-On 5–6 the panel carries the real finding — St John's holds 87% of its summer
-schedule through winter while the network flies 28% less — and says plainly that
-a month-by-month trim is not in the numbers, because the plan works on annual
-frequency.
+Seasonality sits in the evidence tab, marked not modelled: the plan works on
+annual frequency, so a month-by-month trim would need a model this one does not
+have.
 
 ---
 
