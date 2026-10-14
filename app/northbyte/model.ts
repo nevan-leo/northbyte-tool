@@ -82,11 +82,21 @@ function fareUplift(farePct: number, elasticity: number) {
   return (1 + p) * (1 + elasticity * p) - 1;
 }
 
+/**
+ * How much of this route's tranche has landed. `tranche` is a real number, not a
+ * step: 2.67 means the first two tranches are in and the third is two thirds of
+ * the way through. A whole number behaves exactly as the old gate did, which is
+ * what keeps the brief's tests pinned.
+ */
+function applied(route: Route, levers: Levers) {
+  return Math.max(0, Math.min(1, levers.tranche - route.Tranche + 1));
+}
+
 /** How far this route's own solution has been pulled: 0 today, 1 the plan. */
 function levelFor(route: Route, levers: Levers) {
   const own = route.Cohort === 'Restore' ? levers.restoreLevel
     : route.Cohort === 'Decide' ? levers.decideLevel : 1;
-  return levers.phase * own;
+  return levers.phase * own * applied(route, levers);
 }
 
 function targetFlights(route: Route, levers: Levers) {
@@ -107,9 +117,7 @@ export function scenario(levers: Levers): Scenario {
   const uplift = fareUplift(levers.farePct, levers.elasticity);
   const byRoute: RouteResult[] = routes.map(route => {
     const today = route.Flights_FY2526;
-    // A tranche that has not been applied yet leaves the route untouched.
-    const moves = route.Tranche <= levers.tranche;
-    const flights = moves ? targetFlights(route, levers) : today;
+    const flights = targetFlights(route, levers);
 
     const ratio = today > 0 ? flights / today : 0;
     // A route being exited loses its revenue with its flights. So does any cut

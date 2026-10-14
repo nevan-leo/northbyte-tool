@@ -187,6 +187,18 @@ if (!(flightShare > 50 * M && faresDoNothing)) failures += 1;
 console.log(`${flightShare > 50 * M && faresDoNothing ? 'PASS' : 'FAIL'}  at route-level elasticity the ` +
   `flights carry ${(flightShare / M).toFixed(1)}M and fares are left alone`);
 
+
+// ---------------------------------------- the forecast moves every month ----
+// A tranche lands across its quarter, so no two months of the rollout are the
+// same, and flights only ever come down.
+const monthly = Array.from({ length: 12 }, (_, i) =>
+  scenario({ ...DEFAULT_LEVERS, phase: 1, tranche: (i + 1) / 3,
+             restoreLevel: 1, decideLevel: 1, seasonal: true }).flights / 12);
+const everyMonthMoves = monthly.every((v, i) => i === 0 || v < monthly[i - 1] - 0.5);
+if (!everyMonthMoves) failures += 1;
+console.log(`${everyMonthMoves ? 'PASS' : 'FAIL'}  every forecast month falls: ` +
+  monthly.map(v => Math.round(v)).join(' '));
+
 console.log(failures === 0
   ? '\nAll acceptance tests pass.'
   : `\n${failures} acceptance test(s) FAILED.`);

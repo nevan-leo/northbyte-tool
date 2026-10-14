@@ -108,7 +108,9 @@ export default function ScenarioTool() {
         };
       }
 
-      const tranche = Math.min(levers.tranche, Math.floor(i / 3) + 1);
+      // A tranche lands over its quarter rather than on its last day, so every
+      // month of the forecast moves.
+      const tranche = Math.min(levers.tranche, (i + 1) / 3);
       const projection = scenario({ ...levers, tranche });
       return {
         label, month: month.getMonth(), tranche,
