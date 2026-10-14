@@ -111,20 +111,17 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
     <Solution n={1} title="Roll back the doubled routes"
               impact={impacts.rollback} axis={axis}
               readout={<>{extraLive.toFixed(0)} extra flights a week</>}>
-      <Track label="Extra flights on the 10 doubled routes, against before the expansion"
+      <Track label="Extra flights a week, against before the expansion"
              value={levers.restoreLevel * 100} min={0} max={100} marks={[{ at: 0, label: 'Today' }, { at: 100, label: 'Our plan' }]}
              onChange={v => set('restoreLevel', v / 100)} />
-      <p className="line">
-        Montréal–Vancouver {(flightsOf('YUL-YVR') / WEEKS).toFixed(1)} a week each way,
-        from {(routes.find(r => r.Route === 'YUL-YVR')!.Flights_FY2526 / WEEKS).toFixed(1)}
-      </p>
+      <p className="line">Montréal–Vancouver {(flightsOf('YUL-YVR') / WEEKS).toFixed(1)} a week each way</p>
     </Solution>
 
     <Solution n={2} title="Raise fares on the stable routes"
               impact={impacts.fares} axis={axis}
               readout={<>${(PROTECT_FARE + farePerTicket).toFixed(0)} a ticket
                 <small>+${farePerTicket.toFixed(0)}, {levers.farePct.toFixed(2)}%</small></>}>
-      <Track label={`Average ticket price on the 38 stable routes, $${PROTECT_FARE.toFixed(0)} today`}
+      <Track label={`Average ticket price, $${PROTECT_FARE.toFixed(0)} today`}
              value={levers.farePct} min={0} max={FARE_MAX} step={0.05}
              marks={[{ at: 0, label: 'Today' },
                      { at: presets.costPassThroughFarePct, label: 'Our plan' }]}
@@ -138,14 +135,13 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
     <Solution n={3} title="Fly the new routes less"
               impact={impacts.decide} axis={axis}
               readout={<>{decideLive.toFixed(0)} flights a week</>}>
-      <Track label="Flights a week on the 6 new routes"
+      <Track label="Flights a week on the 6 routes"
              value={levers.decideLevel * 50} min={0} max={100}
              marks={[{ at: 0, label: 'Today' }, { at: 50, label: 'Our plan' }, { at: 100, label: 'All exited' }]}
              onChange={v => set('decideLevel', v / 50)} />
-      <p className="line">
+      <p className="line" title="London and Moncton are reduced until each flight needs about 10 tickets to break even">
         London {(flightsOf('YYZ-YXU') / WEEKS).toFixed(1)} · Moncton {(flightsOf('YHZ-YQM') / WEEKS).toFixed(1)} ·
-        Ottawa–Montréal {(flightsOf('YOW-YUL') / WEEKS).toFixed(1)} a week each way, reduced until
-        each flight needs about 10 tickets to break even.
+        Ottawa–Montréal {(flightsOf('YOW-YUL') / WEEKS).toFixed(1)} a week each way
       </p>
     </Solution>
 
@@ -157,7 +153,7 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
       <label className="toggle">
         <input type="checkbox" checked={levers.releaseIdleGates}
                onChange={e => set('releaseIdleGates', e.target.checked)} />
-        <span>Halifax A3 and Ottawa A2, at the January renewal</span>
+        <span>At the January renewal</span>
       </label>
     </Solution>
   </div>;

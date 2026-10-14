@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import NetworkMap, { type ForecastStep } from './NetworkMap';
-import LeverPanel from './Levers';
+import LeverPanel, { ELASTICITIES, RHO_SCENARIOS } from './Levers';
 import EvidenceView from './EvidenceView';
 import { Figure, TweenSpeed } from './Figure';
 import {
@@ -15,12 +15,14 @@ const money = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(v / M).toFixed(1)
 const sign = (v: number) => (v < 0 ? 'neg' : v > 0 ? 'pos' : '');
 
 /** The two states the audience is asked to compare. */
+const NATIONAL_ELASTICITY = -0.88;
 const TODAY: Levers = { ...TODAY_LEVERS, restoreLevel: 0, decideLevel: 0, farePct: 0,
-                        releaseIdleGates: false, gates: 'actual', phase: 1, tranche: 4 };
+                        releaseIdleGates: false, gates: 'actual', phase: 1, tranche: 4,
+                        elasticity: NATIONAL_ELASTICITY };
 const PLAN: Levers = {
   ...DEFAULT_LEVERS, phase: 1, tranche: 4, restoreLevel: 1, decideLevel: 1,
   farePct: presets.costPassThroughFarePct, gates: 'forecast',
-  releaseIdleGates: true, seasonal: true,
+  releaseIdleGates: true, seasonal: true, elasticity: NATIONAL_ELASTICITY,
 };
 
 const FORECAST_MONTHS = 12;
@@ -67,6 +69,7 @@ export default function ScenarioTool() {
         const at = (a: number, b: number) => a + (b - a) * eased;
         setLevers({
           ...target,
+          rhoDown: from.rhoDown, elasticity: from.elasticity,
           restoreLevel: at(from.restoreLevel, target.restoreLevel),
           decideLevel: at(from.decideLevel, target.decideLevel),
           farePct: at(from.farePct, target.farePct),
@@ -119,7 +122,17 @@ export default function ScenarioTool() {
       };
     }), [levers, drifting, today, nothing]);
 
-  const atPlan = JSON.stringify(levers) === JSON.stringify(PLAN);
+  // Twelve runs: three demand cases by four price responses, at whatever the
+  // sliders are now. Cheap enough to do on every change, and it stops the
+  // headline claiming one number when the assumptions span a range.
+  const range = useMemo(() => {
+    const values = RHO_SCENARIOS.flatMap(demand => ELASTICITIES.map(price =>
+      scenario({ ...levers, rhoDown: demand.rho, elasticity: price.value }).profit));
+    return { low: Math.min(...values), high: Math.max(...values) };
+  }, [levers]);
+
+  const atPlan = JSON.stringify({ ...levers, rhoDown: 0, elasticity: 0 })
+    === JSON.stringify({ ...PLAN, rhoDown: 0, elasticity: 0 });
 
   return <TweenSpeed.Provider value={busy ? 100 : 420}>
     <section className="nb shell">
@@ -161,6 +174,11 @@ export default function ScenarioTool() {
             <i className="headlineZero" />
           </i>
           <span className="headlineEnds"><em>{money(today.profit)}</em><em>break even</em></span>
+          <span className="headlineRange">
+            Range across all demand × price cases:{' '}
+            <b><Figure value={range.low} format={money} /></b> to{' '}
+            <b><Figure value={range.high} format={v => (v > 0 ? '+' : '') + money(v)} /></b>
+          </span>
         </div>
         <div className="headlineFigure right">
           <small>{result.gapToBreakeven > 0.05 ? 'Left to break even' : 'Past break even by'}</small>
