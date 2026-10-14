@@ -16,6 +16,7 @@ const M = 1_000_000;
 const WEEKS = 52;
 
 const RESTORE = routes.filter(r => r.Cohort === 'Restore');
+const NEW_ROUTES = routes.filter(r => r.Cohort === 'Decide');
 const PROTECT = routes.filter(r => r.Cohort === 'Protect');
 
 /** Pre-expansion frequency, annualised from the Sep 2024 - Feb 2025 half year. */
@@ -62,9 +63,18 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
     .filter(r => r.route.Cohort === cohort)
     .reduce((a, r) => a + r.flights, 0);
 
+  const extraToday = RESTORE.reduce((a, r) => a + r.Flights_FY2526 - preExpansion(r), 0) / WEEKS;
   const extraLive = (cohortFlights('Restore')
     - RESTORE.reduce((a, r) => a + preExpansion(r), 0)) / WEEKS;
+  const extraAtPlan = RESTORE.reduce(
+    (a, r) => a + r.PlanFlights * (levers.seasonal ? constants.seasonalFactor : 1)
+             - preExpansion(r), 0) / WEEKS;
+  const newToday = NEW_ROUTES.reduce((a, r) => a + r.Flights_FY2526, 0) / WEEKS;
+  const newAtPlan = NEW_ROUTES.reduce((a, r) => a + r.PlanFlights, 0) / WEEKS;
   const decideLive = cohortFlights('Decide') / WEEKS;
+  const cut = (from: number, to: number) => Math.max(0, from - to);
+  const flightsCut = cut(extraToday, extraLive);
+  const newRoutesCut = cut(newToday, decideLive);
   const farePerTicket = PROTECT_FARE * (levers.farePct / 100);
 
   // Each lever measured on its own: the model re-run with that lever alone.
@@ -110,17 +120,25 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
 
     <Solution n={1} title="Roll back the doubled routes"
               impact={impacts.rollback} axis={axis}
-              readout={<>{extraLive.toFixed(0)} extra flights a week</>}>
-      <Track label="Extra flights a week, against before the expansion"
+              headline={flightsCut < 0.5 ? 'No change' : `Cut ${flightsCut.toFixed(0)} flights a week`}
+              sub={flightsCut < 0.5
+                ? `${extraToday.toFixed(0)} extra flights a week today`
+                : `From ${extraToday.toFixed(0)} extra flights a week to ${extraLive.toFixed(0)}`}>
+      <Track label="Extra flights still flying on the 10 doubled routes, against before the expansion"
              value={levers.restoreLevel * 100} min={0} max={100} marks={[{ at: 0, label: 'Today' }, { at: 100, label: 'Our plan' }]}
              onChange={v => set('restoreLevel', v / 100)} />
-      <p className="line">Montréal–Vancouver {(flightsOf('YUL-YVR') / WEEKS).toFixed(1)} a week each way</p>
+      <p className="line" title={`The plan leaves about ${extraAtPlan.toFixed(0)} extra flights a week because of the ${constants.seasonalFactor} seasonal allowance`}>
+        Montréal–Vancouver {(flightsOf('YUL-YVR') / WEEKS).toFixed(1)} a week each way ·
+        plan keeps {extraAtPlan.toFixed(0)} for seasonality
+      </p>
     </Solution>
 
     <Solution n={2} title="Raise fares on the stable routes"
               impact={impacts.fares} axis={axis}
-              readout={<>${(PROTECT_FARE + farePerTicket).toFixed(0)} a ticket
-                <small>+${farePerTicket.toFixed(0)}, {levers.farePct.toFixed(2)}%</small></>}>
+              headline={levers.farePct < 0.01 ? 'No change' : `Raise tickets $${farePerTicket.toFixed(0)}`}
+              sub={levers.farePct < 0.01
+                ? `$${PROTECT_FARE.toFixed(0)} a ticket today`
+                : `$${PROTECT_FARE.toFixed(0)} to $${(PROTECT_FARE + farePerTicket).toFixed(0)} (+${levers.farePct.toFixed(2)}%)`}>
       <Track label={`Average ticket price, $${PROTECT_FARE.toFixed(0)} today`}
              value={levers.farePct} min={0} max={FARE_MAX} step={0.05}
              marks={[{ at: 0, label: 'Today' },
@@ -134,10 +152,16 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
 
     <Solution n={3} title="Fly the new routes less"
               impact={impacts.decide} axis={axis}
-              readout={<>{decideLive.toFixed(0)} flights a week</>}>
-      <Track label="Flights a week on the 6 routes"
+              headline={newRoutesCut < 0.5 ? 'No change' : `Cut ${newRoutesCut.toFixed(0)} flights a week`}
+              sub={newRoutesCut < 0.5
+                ? `${newToday.toFixed(0)} flights a week today`
+                : decideLive < 0.5
+                  ? `From ${newToday.toFixed(0)} a week to none. All six exited`
+                  : `From ${newToday.toFixed(0)} a week to ${decideLive.toFixed(0)}. London and Moncton reduced, Ottawa–Montréal exited`}>
+      <Track label="Flights a week still flying on the 6 new routes"
              value={levers.decideLevel * 50} min={0} max={100}
-             marks={[{ at: 0, label: 'Today' }, { at: 50, label: 'Our plan' }, { at: 100, label: 'All exited' }]}
+             marks={[{ at: 0, label: 'Today' }, { at: 50, label: `Our plan, ${newAtPlan.toFixed(0)}` },
+                     { at: 100, label: 'All exited' }]}
              onChange={v => set('decideLevel', v / 50)} />
       <p className="line" title="London and Moncton are reduced until each flight needs about 10 tickets to break even">
         London {(flightsOf('YYZ-YXU') / WEEKS).toFixed(1)} · Moncton {(flightsOf('YHZ-YQM') / WEEKS).toFixed(1)} ·
@@ -147,9 +171,10 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
 
     <Solution n={4} title="Hand back the idle gates"
               impact={impacts.gates} axis={axis}
-              readout={levers.releaseIdleGates
-                ? <>Saves {money(constants.idleGatesReleasable)} a year</>
-                : <>Held<small>no saving</small></>}>
+              headline={levers.releaseIdleGates ? 'Hand back 2 gates' : 'No change'}
+              sub={levers.releaseIdleGates
+                ? `Saves ${money(constants.idleGatesReleasable)} a year`
+                : 'Halifax A3 and Ottawa A2 carry no route'}>
       <label className="toggle">
         <input type="checkbox" checked={levers.releaseIdleGates}
                onChange={e => set('releaseIdleGates', e.target.checked)} />
@@ -250,17 +275,17 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
   </aside>;
 }
 
-function Solution({ n, title, impact, axis, readout, children }: {
+function Solution({ n, title, impact, axis, headline, sub, children }: {
   n: number; title: string; axis: number;
   impact: { value: number; low: number; high: number };
-  readout: React.ReactNode; children: React.ReactNode;
+  headline: string; sub: string; children: React.ReactNode;
 }) {
   const width = (v: number) => `${(Math.abs(v) / axis) * 100}%`;
   const banded = Math.abs(impact.high - impact.low) > 0.05 * M;
   return <section className="pillar solution">
     <h3><span>{n}</span>{title}</h3>
     <div className="solutionHead">
-      <p className="readout">{readout}</p>
+      <p className="readout">{headline}<small>{sub}</small></p>
       <div className="impact" title={`${signed(impact.value)} measured on its own`}>
         <span className="impactTrack">
           {banded && <i className="impactBand"
