@@ -41,3 +41,6 @@ next-env.d.ts
 # Raw source extracts are large and republishable; staged files are derived.
 /data/raw/
 /data/staged/
+
+# build info
+*.tsbuildinfo

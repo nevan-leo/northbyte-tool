@@ -280,7 +280,7 @@ export function recipe(levers: Levers, fareCeilingPct: number) {
   const steps = [
     { label: 'Roll back the doubled routes', value: only({ restoreLevel: 1 }) },
     { label: 'Exit every new route', value: only({ decideLevel: 2 }) },
-    { label: 'Hand back the idle gates', value: only({ releaseIdleGates: true }) },
+    { label: 'Close both idle gates', value: only({ releaseIdleGates: true }) },
     { label: fare > 0.01 ? `Fares, ${fare.toFixed(1)}% on the stable routes` : 'Fares, left alone',
       value: only({ farePct: fare }) },
   ];
@@ -288,6 +288,38 @@ export function recipe(levers: Levers, fareCeilingPct: number) {
     releaseIdleGates: true, farePct: fare });
   return { steps, bestFarePct: fare, nothing, profit: all.profit, target: all.target,
            short: all.target - all.profit, breaksEven: all.profit >= 0 };
+}
+
+/**
+ * What the four levers are doing RIGHT NOW, in the order the deck tells them.
+ * Each figure is the step that lever adds on top of the ones before it, so the
+ * four add up exactly to where profit lands - no interaction is double counted
+ * and nothing is attributed twice. The floor is this same scenario with all
+ * four levers at rest, which is what "do nothing" means.
+ */
+export function contributions(levers: Levers) {
+  const floor: Levers = { ...levers, restoreLevel: 0, decideLevel: 0,
+                          farePct: 0, releaseIdleGates: false };
+  const at = (patch: Partial<Levers>) => scenario({ ...floor, ...patch }).profit;
+
+  const one = { restoreLevel: levers.restoreLevel };
+  const two = { ...one, decideLevel: levers.decideLevel };
+  const three = { ...two, releaseIdleGates: levers.releaseIdleGates };
+  const four = { ...three, farePct: levers.farePct };
+
+  const nothing = at({});
+  const p1 = at(one), p2 = at(two), p3 = at(three), p4 = at(four);
+  return {
+    nothing,
+    profit: p4,
+    steps: [
+      { label: 'Roll back the doubled routes', value: p1 - nothing },
+      { label: 'Fly the new routes less', value: p2 - p1 },
+      { label: 'Close both idle gates', value: p3 - p2 },
+      { label: levers.farePct > 0.01 ? `Fares, ${levers.farePct.toFixed(1)}% on the stable routes`
+                                     : 'Fares, left alone', value: p4 - p3 },
+    ],
+  };
 }
 
 /**

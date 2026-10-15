@@ -17,13 +17,15 @@ export const TweenSpeed = createContext(420);
 export function useTween(value: number, override?: number) {
   const ms = useContext(TweenSpeed) ?? 420;
   const [shown, setShown] = useState(value);
+  // Where the figure actually is, written inside the frame loop. Reading it
+  // back from state a render later made each new target start from a stale
+  // value, which showed up as a wobble at the head of a glide.
   const current = useRef(value);
-
-  useEffect(() => { current.current = shown; }, [shown]);
 
   useEffect(() => {
     const duration = override ?? ms;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      current.current = value;
       setShown(value);
       return;
     }
@@ -33,7 +35,9 @@ export function useTween(value: number, override?: number) {
     let frame = requestAnimationFrame(function step(now) {
       const t = Math.min(1, (now - started) / duration);
       const eased = 1 - Math.pow(1 - t, 3);          // ease-out, no overshoot
-      setShown(from + (value - from) * eased);
+      const at = from + (value - from) * eased;
+      current.current = at;
+      setShown(at);
       if (t < 1) frame = requestAnimationFrame(step);
     });
     return () => cancelAnimationFrame(frame);

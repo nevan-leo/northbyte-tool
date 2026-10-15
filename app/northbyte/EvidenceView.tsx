@@ -98,7 +98,7 @@ export default function EvidenceView({ levers, result, today }:
 
       <div className="panel">
           <div className="sectionhead"><span>From today to this scenario</span>
-            <small>PROFIT AFTER GATES</small></div>
+            <small>Profit after gates</small></div>
           <Waterfall start={today.profit} end={result.profit} steps={steps} />
       </div>
 

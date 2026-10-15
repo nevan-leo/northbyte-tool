@@ -371,8 +371,7 @@ button { cursor:pointer; }
 .headlineBar { display:flex; flex-direction:column; gap:var(--s2); }
 .headlineTrack { position:relative; display:block; height:var(--s3);
   background:var(--paper-2); border-radius:var(--r); overflow:hidden; }
-.headlineFill { position:absolute; left:0; top:0; bottom:0; background:var(--clay);
-  transition:width .45s cubic-bezier(.2,.6,.2,1); }
+.headlineFill { position:absolute; left:0; top:0; bottom:0; background:var(--clay); }
 .headlineZero { position:absolute; right:0; top:0; bottom:0; width:2px; background:var(--ink); }
 .headlineEnds { display:flex; justify-content:space-between; font-size:var(--t-label);
   letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); }
@@ -389,8 +388,7 @@ button { cursor:pointer; }
 .impactTrack { position:relative; display:block; height:var(--s2); background:var(--paper-2);
   border-radius:var(--r); overflow:hidden; }
 .impactBand { position:absolute; top:0; bottom:0; background:var(--tan); opacity:.85; }
-.impactBar { position:absolute; left:0; top:0; bottom:0; background:var(--ink);
-  transition:width .2s cubic-bezier(.2,.6,.2,1); }
+.impactBar { position:absolute; left:0; top:0; bottom:0; background:var(--ink); }
 .impactBar.neg { background:var(--clay); }
 .impact b { display:block; font-family:var(--font-geist-mono),monospace; font-variant-numeric:tabular-nums;
   font-size:var(--t-small); margin-top:var(--s1); }
@@ -462,8 +460,7 @@ button { cursor:pointer; }
 .recipe li.idle { opacity:.45; }
 .recipe li.recipeTotal { border-top:1px solid var(--line-2); margin-top:var(--s2); padding-top:var(--s3); font-weight:600; }
 .recipeBar { display:block; height:var(--s2); background:var(--paper-2); order:2; border-radius:var(--r); overflow:hidden; }
-.recipeBar i { display:block; height:100%; background:var(--ink); border-radius:var(--r);
-  transition:width .3s cubic-bezier(.2,.6,.2,1); }
+.recipeBar i { display:block; height:100%; background:var(--ink); border-radius:var(--r); }
 .recipeBar i.neg { background:var(--clay); }
 .recipeLabel { color:var(--ink-2); order:1; }
 .recipe b { order:3; }
@@ -523,3 +520,335 @@ button { cursor:pointer; }
 .marks i:last-child::before { left:100%; }
 .sectionhead.stacked { display:block; }
 .sectionhead.stacked small { display:block; margin-top:2px; }
+
+/* ------------------------------------------------- minimal dashboard ----- */
+.dashboard { grid-template-columns:minmax(0,1fr) 320px;
+  grid-template-areas:'map rail' 'solutions solutions' 'selectors selectors'; }
+.dashboard .breakevenBox { grid-area:rail; display:block; border:1px solid var(--line);
+  border-radius:var(--r); padding:var(--s4); align-self:start; }
+.dashboard .breakevenBox .recipe,
+.dashboard .breakevenBox .note,
+.dashboard .breakevenBox .landsNow { grid-column:auto; }
+.dashboard .breakevenBox .recipe li { grid-template-columns:minmax(0,1fr) auto;
+  align-items:baseline; row-gap:var(--s1); column-gap:var(--s3); padding:var(--s2) 0; }
+.dashboard .breakevenBox .recipeLabel { grid-column:1; grid-row:1; }
+.dashboard .breakevenBox .recipe b { grid-column:2; grid-row:1; }
+.dashboard .breakevenBox .recipeBar { grid-column:1 / -1; grid-row:2; }
+.dashboard .rail { grid-area:selectors; flex-direction:row; align-items:flex-start;
+  gap:var(--s5); flex-wrap:wrap; }
+.dashboard .rail .selectors { flex:3 1 560px; display:grid;
+  grid-template-columns:1fr 1fr; column-gap:var(--s5); row-gap:var(--s2);
+  align-items:start; }
+.dashboard .rail .selectors > h3 { grid-column:1; grid-row:1; margin:0; }
+.dashboard .rail .selectors > h3.second { grid-column:2; grid-row:1; margin:0; }
+.dashboard .rail .selectors > .note { grid-column:2; grid-row:2; margin:0; }
+.dashboard .rail .selectors > .choiceList { grid-row:3; }
+.dashboard .rail .selectors > .choiceList:first-of-type { grid-column:1; }
+.dashboard .rail .selectors > .choiceList:last-of-type { grid-column:2; }
+.dashboard .rail .advanced { flex:1 1 240px; margin-top:0; border-top:0;
+  border-left:1px solid var(--line); padding:0 0 0 var(--s5); }
+.mapHead { display:flex; align-items:flex-start; justify-content:space-between;
+  gap:var(--s4); margin-bottom:var(--s3); }
+.mapHead .mapReadout { position:static; }
+.mapHeadRight { display:flex; flex-direction:column; align-items:flex-end; gap:var(--s2); }
+.mapHeadRight .mapDelta, .mapHeadRight .mapSame { margin:0; text-align:right; }
+.mapHead .mapZoom { position:static; flex-direction:row; }
+
+/* months, counted */
+.tick u { position:absolute; bottom:-16px; left:0; right:0; text-decoration:none;
+  font-size:9px; color:var(--ink-3); }
+.track { height:60px; margin-bottom:var(--s4); }
+.trackAxis { justify-content:flex-start; }
+
+/* ------------------------------------------- flipped palette: wine page --- */
+/* The page itself is the wine; every panel is the cream lifted off it, so the
+   four colours swap roles rather than gaining a fifth. */
+:root {
+  --page:#6d2932;
+  --paper:#f3e7d6;
+  --paper-2:#e4d3bd;
+  --ink:#4a1a21;
+  --ink-2:#6d3a40;
+  --ink-3:#8a6063;
+  --line:#cdbda8;
+  --on-dark:#e8d8c4;        /* text that sits straight on the wine */
+  --on-dark-2:#cdb3a9;
+}
+body { color:var(--on-dark); }
+.panel, .railTop, .breakevenBox, .rail, .solutionRow .solution { color:var(--ink); }
+.rail { background:var(--paper); }
+
+.tabs { border-bottom-color:rgba(232,216,196,.28); }
+.tab { color:var(--on-dark-2); }
+.tab:hover { color:var(--on-dark); }
+.tab.on { color:var(--on-dark); border-bottom-color:var(--tan); }
+.solutionRowHead .sectionhead { color:var(--on-dark); }
+
+/* Accents swap too: the strong fill is the deep maroon, the quiet one the tan. */
+.choice.on { background:var(--wine); border-color:var(--wine); }
+.pillar h3 span { background:var(--maroon); }
+.recipeBar { background:var(--paper-2); }
+
+/* ------------------------------------ rail: headline on top, equal height --- */
+.dashboard .railCol { grid-area:rail; display:flex; flex-direction:column; min-width:0; }
+.railTop { display:grid; grid-template-columns:1fr auto; gap:var(--s3) var(--s4);
+  align-items:start; background:var(--paper); border:1px solid var(--line);
+  border-radius:var(--r) var(--r) 0 0; padding:var(--s4); }
+.railTop .headlineBar { grid-column:1 / -1; }
+.railTop .headlineFigure b { font-size:var(--t-figure); }
+.dashboard .breakevenBox { grid-area:auto; align-self:stretch; flex:1;
+  display:flex; flex-direction:column; justify-content:center;
+  border-top:0; border-radius:0 0 var(--r) var(--r); padding:var(--s4); }
+.dashboard .breakevenBox .recipe { margin:0; display:flex; flex-direction:column;
+  justify-content:space-evenly; flex:1; }
+
+/* every solution card the same height */
+.solutionRow { align-items:stretch; }
+.solutionRow .solution { height:100%; }
+
+/* the Q&A drawer sits under everything, out of the reading path */
+.dashboard .rail .advanced { flex:1 0 100%; order:9; margin-top:var(--s3);
+  border-left:0; border-top:1px solid var(--line); padding:var(--s3) 0 0; }
+
+/* --------------------------------------------------------- map shading --- */
+/* Canada is the subject, so it is the brightest thing on the map; its
+   neighbours recede into the tan and the water sits below both. */
+.mapLand { fill:#f2e5d1; stroke:#ab8e72; stroke-width:1; }
+.mapNeighbour { fill:#dccdb7; stroke:#c2af96; stroke-width:.8; }
+.mapSvg { background:#c2cecd; }
+.mapWater { fill:#c2cecd; stroke:#a8b6b5; stroke-width:.7; }
+
+/* ------------------------------------- state buttons live with the bars --- */
+.breakevenBox .stateButtons { margin:0 0 var(--s4); display:flex; gap:var(--s2); }
+.breakevenBox .stateButtons .pill { flex:1; text-align:center; white-space:nowrap;
+  padding:var(--s2); }
+.scaleNote { margin-top:var(--s3); font-size:var(--t-label); color:var(--ink-3); }
+
+/* the recipe is a line of plain figures now; nothing to draw a bar for */
+.dashboard .breakevenBox .recipe li { grid-template-columns:minmax(0,1fr) auto;
+  align-items:baseline; padding:var(--s2) 0; }
+.dashboard .breakevenBox .recipe { justify-content:space-between; }
+
+/* ===================================================== the deeper ground === */
+/* The page is the wine brown; the burgundy is freed up for what moves inside
+   the panels - every bar, fill, handle and selected state. */
+:root { --page:#561c24; --accent:#6d2932; }
+
+.recipeBar i, .impactBar, .headlineFill, .bar.restore, .wfBar.neg { background:var(--accent); }
+.impactBar.neg, .recipeBar i.neg { background:var(--accent); }
+.recipeTotal .recipeBar i { background:var(--maroon); }
+.choice.on, .pill.active { background:var(--accent); border-color:var(--accent); }
+.pillar h3 span { background:var(--accent); }
+.slider input[type=range]::-webkit-slider-thumb { background:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+.slider input[type=range]::-moz-range-thumb { background:var(--accent); }
+.toggle input { accent-color:var(--accent); }
+.tick.ahead.on i, .tick.ahead:hover i { background:var(--accent); }
+
+/* ------------------------------------------------ the rail as a card deck -- */
+.dashboard { grid-template-columns:minmax(0,1fr) 400px;
+  grid-template-areas:'map rail'; }
+.stageBody { flex:1; min-height:0; overflow:hidden; overscroll-behavior:contain; }
+.stage { height:100%; }
+.dashboard .stage > .solutionRow { grid-template-columns:minmax(0,1fr); gap:var(--s2);
+  align-content:start; }
+.dashboard .stage .solutionRow .solution { height:auto; padding:var(--s2) var(--s3) var(--s3); }
+.dashboard .stage .solutionRow .readout { font-size:var(--t-body); }
+.dashboard .stage .solutionRow .solution h3 { margin-bottom:var(--s1); }
+.dashboard .stage .solutionRow .leverTrack { margin-top:var(--s2); }
+.dashboard .stage .solutionRow .line { display:none; }
+.dashboard .stage .solutionRow .solutionHead { display:flex; align-items:flex-start;
+  justify-content:space-between; gap:var(--s3); }
+.dashboard .stage .solutionRow .impact { flex:0 0 96px; text-align:right; margin-top:0; }
+.dashboard .stage .solutionRow .impact b { text-align:right; }
+.dashboard .stage .rail { grid-area:auto; flex-direction:column; border:0; padding:0;
+  background:none; gap:var(--s4); }
+.dashboard .stage .rail .selectors { display:grid; grid-template-columns:1fr 1fr; }
+.dashboard .stage .rail .advanced { flex:none; border-top:1px solid var(--line);
+  padding-top:var(--s3); margin-top:0; }
+.dashboard .stage .breakevenBox { border:0; padding:0; }
+
+/* the three dots, so the deck says it has more cards */
+.stageDots { display:flex; gap:var(--s3); margin-top:var(--s3); padding-top:var(--s3);
+  border-top:1px solid var(--line); }
+.stageDot { display:flex; align-items:center; gap:var(--s2); background:none; border:0;
+  padding:0; font-size:var(--t-label); letter-spacing:.04em; color:var(--ink-3); }
+.stageDot i { width:var(--s2); height:var(--s2); border-radius:var(--r);
+  background:var(--line); transition:background .2s ease; }
+.stageDot.on { color:var(--ink); }
+.stageDot.on i { background:var(--accent); }
+
+/* the months count above the bars, where the eye already is */
+.tick u { top:-14px; bottom:auto; }
+.tick em { top:-26px; }
+.track { padding-top:28px; height:76px; margin-bottom:var(--s2); }
+
+/* the whole rail is one card, from the figures down to the dots */
+.dashboard .railCol { background:var(--paper); border:1px solid var(--line);
+  border-radius:var(--r); padding:var(--s4); color:var(--ink); }
+.dashboard .railTop { border:0; border-radius:0; padding:0 0 var(--s4); }
+.dashboard .railCol .stateButtons { margin:0 0 var(--s4); display:flex; gap:var(--s2); }
+.dashboard .railCol .stateButtons .pill { flex:1; text-align:center; white-space:nowrap; }
+.dashboard .breakevenBox { border:0; border-radius:0; padding:0; }
+.stageBody { overflow-y:auto; scrollbar-width:none; }
+.stageBody::-webkit-scrollbar { width:0; height:0; }
+
+/* one screen, always: the deck scrolls inside the rail, the page does not */
+.dashboard { height:calc(100vh - 76px); min-height:520px; }
+.dashboard .mapPanel, .dashboard .railCol { min-height:0; overflow:hidden; display:flex;
+  flex-direction:column; }
+.dashboard .mapBlock { flex:1; min-height:0; }
+.nb { padding-bottom:var(--s4); }
+/* in the deck the headline already says what the slider does */
+.dashboard .stage .solutionRow .trackLabel { display:none; }
+.dashboard .stage .solutionRow .leverTrack { margin-top:var(--s3); }
+/* the assumptions card reads from the top, not spread down the column */
+.dashboard .stage .rail { justify-content:flex-start; }
+.dashboard .stage .rail .selectors { align-content:start; row-gap:var(--s2);
+  grid-template-rows:auto auto auto; }
+
+/* ------------------------------------------ every card fills the same box -- */
+.dashboard .stage > * { min-height:100%; }
+/* 1 - the five figures spread down the card, with bars worth looking at */
+.dashboard .breakevenBox .recipe { justify-content:space-between; height:100%; }
+.dashboard .breakevenBox .recipe li { padding:0; row-gap:var(--s2); }
+.dashboard .breakevenBox .recipeBar { height:var(--s3); }
+.dashboard .breakevenBox .recipeLabel,
+.dashboard .breakevenBox .recipe b { font-size:var(--t-body); }
+.dashboard .breakevenBox .recipe li.recipeTotal { margin-top:0; padding-top:var(--s4); }
+/* 2 - the four cards share the leftover evenly */
+.dashboard .stage > .solutionRow { align-content:space-between; }
+/* 3 - the choices stretch, so the Q&A sits at the foot of a full card */
+.dashboard .stage .rail .choiceList { height:100%; }
+.dashboard .stage .rail .choice { flex:1; display:flex; flex-direction:column;
+  justify-content:center; }
+.dashboard .stage .rail .advanced { margin-top:auto; }
+/* the two choice columns fill the card, so nothing is left hanging */
+.dashboard .stage .rail .selectors { height:100%; align-content:stretch;
+  grid-template-rows:auto minmax(0,1fr); }
+.dashboard .stage .rail .selectors > .choiceList { grid-row:2; }
+.dashboard .stage .rail .choiceList { gap:var(--s2); }
+/* the choices take the slack, the Q&A keeps its line at the foot */
+.dashboard .stage .rail .selectors { height:auto; flex:1 1 auto; min-height:0; }
+.dashboard .stage .rail .advanced { flex:0 0 auto; margin-top:0; }
+
+/* an opened Q&A makes the card taller than the rail, so the card scrolls */
+.dashboard .stage { height:auto; min-height:100%; }
+.dashboard .stage .rail { height:auto; min-height:100%; }
+.dashboard .stage .rail .selectors { flex:1 0 auto; }
+.dashboard .stage .rail .advanced[open] { flex:0 0 auto; }
+
+/* each bar says what share of the turnaround it is */
+.dashboard .breakevenBox .recipe li { grid-template-columns:minmax(0,1fr) auto; }
+.dashboard .breakevenBox .recipe li > u { grid-column:1 / -1; grid-row:3;
+  text-decoration:none; font-size:var(--t-label); color:var(--ink-3); }
+.dashboard .breakevenBox .recipe { flex:1 1 auto; height:auto; }
+.dashboard .breakevenBox .recipe li { row-gap:var(--s2); }
+.dashboard .breakevenBox .recipe li > u { margin-top:2px; }
+/* the card fills the rail, and grows past it when its content is taller */
+.dashboard .stage { display:flex; flex-direction:column; min-height:100%; height:auto; }
+.dashboard .stage > * { flex:1 0 auto; min-height:0; height:auto; }
+
+/* ------------------------------------------------ camera, focus, readout --- */
+.mapReadout span b { display:inline; font-size:var(--t-small);
+  font-family:var(--font-geist-mono),monospace;
+  font-variant-numeric:tabular-nums; font-weight:600; color:var(--ink); }
+.mapHead .mapZoom { gap:var(--s2); }
+.mapHead .mapZoom .pill { padding:var(--s1) var(--s3); line-height:1.6;
+  font-size:var(--t-small); }
+/* Focus mode: the arcs already ease their opacity; the aircraft follow. */
+.fleet > g path { transition:fill-opacity .35s ease; }
+
+/* Focus mode swells and settles rather than snapping: a longer, softer curve
+   on the way in, and the aircraft fade on the same timing as their routes. */
+.mapSvg path[stroke] { transition:stroke-width .55s cubic-bezier(.33,1,.68,1),
+                                  stroke-opacity .55s cubic-bezier(.33,1,.68,1); }
+.fleet > g path { transition:fill-opacity .55s cubic-bezier(.33,1,.68,1); }
+@media (prefers-reduced-motion: reduce) {
+  .mapSvg path[stroke], .fleet > g path { transition:none; }
+}
+
+/* ------------------------------------------- the gates lever, on one line -- */
+.solution.switched h3 { margin:0; }
+.solution.switched h3 .toggle.switch { margin:0 0 0 auto; }
+.toggle.switch { display:inline-flex !important; align-items:center; }
+.toggle.switch input { width:16px; height:16px; }
+.dashboard .stage .solutionRow .solution.switched { padding-bottom:var(--s2); }
+.dashboard .stage .solutionRow .solution.switched .solutionHead { display:block; }
+.dashboard .stage .solutionRow .solution.switched .impact { flex:none; width:100%;
+  text-align:left; margin-top:var(--s2); display:flex; align-items:center; gap:var(--s3); }
+.dashboard .stage .solutionRow .solution.switched .impactTrack { flex:1; }
+.dashboard .stage .solutionRow .solution.switched .impact b { margin:0; }
+/* the four levers fit the rail without scrolling */
+.dashboard .stage > .solutionRow { gap:var(--s1); }
+
+/* ------------------------------------------------- lower case, white card -- */
+/* Small headers read as labels through size and colour; they do not need to
+   shout in capitals as well. */
+.label, .eyebrow, .source, .brand small, .sectionhead small, .kpi small,
+.readoutGrid small, .nbTable th, .levers label, .leverLabel, .trackAxis,
+.headlineFigure small, .headlineEnds, .selectors h3, .stageDot, .mapReadout small,
+.legendNote, .marks i { text-transform:none; letter-spacing:.01em; }
+
+/* The panels are white; the cream stays in the map, where it is geography. */
+:root {
+  --paper:#ffffff;
+  --paper-2:#f1ece5;
+  --line:#e0d7cc;
+}
+.assumptions b { text-transform:none; letter-spacing:.01em; }
+/* the KPI strip is a panel too, now that the page behind it is wine */
+.kpiStrip { background:var(--paper); color:var(--ink); }
+
+/* ------------------------------------------------------------ no borders -- */
+/* White on wine separates the cards on its own; outlines on top of that were
+   doing nothing but adding edges. */
+.panel, .kpiStrip, .kpi, .assumptions, .levers, .rail,
+.dashboard .railCol, .dashboard .breakevenBox, .dashboard .railTop,
+.solutionRow .solution, .dashboard .stage .rail .advanced { border:0; }
+.kpi { border-right:0; }
+/* Buttons keep their shape through fill rather than an edge. */
+.pill, .choice { border-color:transparent; background:var(--paper-2); }
+.pill:hover, .choice:hover { background:var(--line); }
+.pill.active, .choice.on { background:var(--accent); border-color:transparent; }
+.mapHead .mapZoom .pill { background:var(--card); }
+.mapHead .mapZoom .pill.active { background:var(--accent); color:var(--paper); }
+
+/* ===================================================== white, borderless === */
+/* The page itself is white now: no wine behind the panels, and no outlines
+   around them. Separation comes from a faint warm tint on the inner cards. */
+:root {
+  --page:#ffffff;
+  --paper:#ffffff;
+  --paper-2:#f0ebe4;
+  --card:#f8f5f1;
+  --line:#e7e0d7;
+  --on-dark:var(--ink);
+  --on-dark-2:var(--ink-3);
+}
+body { color:var(--ink); }
+.panel, .dashboard .railCol, .kpiStrip, .dashboard .stage .breakevenBox,
+.assumptions, .levers { border:0; }
+.kpi { border-right:0; }
+
+.tabs { border-bottom:1px solid var(--line); }
+.tab { color:var(--ink-3); }
+.tab.on { color:var(--ink); border-bottom-color:var(--accent); }
+
+/* cards read as cards without an outline */
+.dashboard .stage .solutionRow .solution,
+.choice { border:0; background:var(--card); }
+.choice:hover { background:var(--paper-2); }
+.choice.on { background:var(--accent); }
+.pill { border:1px solid var(--line); background:var(--card); }
+.pill.active { background:var(--accent); border-color:var(--accent); }
+
+/* Bars that are redrawn every frame by the glide carry no transition of their
+   own: a second ease on top of the first is what reads as a stutter. They move
+   with the levers, and the levers are already eased. */
+.dashboard .breakevenBox .recipeBar i { transition:none; }
+.impactBar, .impactBand { transition:none; }
+.headlineFill { transition:none; }
+@media (prefers-reduced-motion: reduce) {
+  .dashboard .breakevenBox .recipeBar i, .impactBar, .impactBand, .headlineFill {
+    transition:none; }
+}

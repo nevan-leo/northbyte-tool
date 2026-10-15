@@ -1,16 +1,16 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import {
-  scenario, recipe, routes, constants, presets, requiredFarePct,
-  protectTicketRevenue, type Levers, type Scenario,
+  scenario, recipe, contributions, routes, constants, presets,
+  type Levers, type Scenario, type Route,
 } from './model';
 
 // The four solutions from the deck, each labelled in the unit the airline
 // actually operates in - flights a week, dollars a ticket - rather than in the
 // model's internal levels. Every figure here is computed from the route data.
 
-import { money, signed } from './format';
+import { signed } from './format';
 
 const M = 1_000_000;
 const WEEKS = 52;
@@ -27,7 +27,6 @@ const PROTECT_FARE = PROTECT.reduce((a, r) => a + r.TicketRev, 0) / PROTECT_TICK
 // average) while flying the same schedule, so anything past that range is
 // outside what the data can speak to.
 const FARE_EVIDENCE_CEILING = 6.4;
-const FARE_MAX = 10;
 
 export const RHO_SCENARIOS = [
   { key: 'High', rho: presets.rhoDown.High, name: 'Demand holds',
@@ -40,23 +39,32 @@ export const RHO_SCENARIOS = [
 
 export const ELASTICITIES = [
   { value: 0, name: 'No response', note: 'our data, one year' },
-  { value: -0.5, name: 'Half', note: 'illustrative' },
   { value: -0.88, name: 'National average, −0.88', note: 'IATA/InterVISTAS' },
   { value: -1.54, name: 'Route level, −1.54', note: 'IATA/InterVISTAS' },
 ] as const;
 
-export default function LeverPanel({ section, levers, set, result, onNothing, onPlan,
-                                     drifting, atPlan, animating }: {
+export default function LeverPanel({ section, levers, set, result, animating, onFocus }: {
   section: 'solutions' | 'breakeven' | 'rail';
   levers: Levers;
   set: <K extends keyof Levers>(key: K, value: Levers[K]) => void;
   result: Scenario;
-  onNothing: () => void;
-  onPlan: () => void;
-  drifting: boolean;
-  atPlan: boolean;
   animating: boolean;
+  /** Which cohort the hand is on, so the map can bring it forward. */
+  onFocus?: (cohort: Route['Cohort'] | null) => void;
 }) {
+  // Hovering or dragging a lever focuses its cohort on the map; letting go
+  // restores the whole network a beat later, so a slip of the mouse between two
+  // cards does not flash the map.
+  const release = useRef<number | undefined>(undefined);
+  const hold = useCallback((cohort: Route['Cohort']) => {
+    window.clearTimeout(release.current);
+    onFocus?.(cohort);
+  }, [onFocus]);
+  const letGo = useCallback(() => {
+    window.clearTimeout(release.current);
+    release.current = window.setTimeout(() => onFocus?.(null), 400);
+  }, [onFocus]);
+
   const flightsOf = (code: string) =>
     result.byRoute.find(r => r.route.Route === code)?.flights ?? 0;
   const cohortFlights = (cohort: 'Restore' | 'Decide') => result.byRoute
@@ -103,30 +111,41 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
   }, [levers]);
 
   const plan = useMemo(() => recipe(levers, FARE_EVIDENCE_CEILING), [levers]);
-  const stack = Math.max(...plan.steps.map(s => Math.abs(s.value)), 1);
-  const fareToBreakeven = requiredFarePct(result.gapToBreakeven, levers.elasticity, protectTicketRevenue);
 
-  const axis = Math.max(1, ...Object.values(impacts)
-    .flatMap(i => [Math.abs(i.value), Math.abs(i.low), Math.abs(i.high)]));
+  // Each bar is a share of what its own lever is worth pulled all the way, so
+  // the bar fills exactly when the slider does. The dollars beside it stay
+  // comparable between cards; the bar answers "how much of this lever is left".
+  const full = (i: number) => Math.max(1, Math.abs(plan.steps[i].value));
+  // The list is what the levers are doing now, not what they could do: the four
+  // steps add up to the turnaround the headline figure is standing on. The bar
+  // and the percentage are the same quantity - each lever's share of that
+  // turnaround - so the drawing cannot say one thing and the number another.
+  const live = useMemo(() => contributions(levers), [levers]);
+  // Measured against the gap we start from, not against each other. A share of
+  // the four would have to divide by a total that is itself collapsing as the
+  // levers come off, so every bar held its width and then vanished at the end.
+  // Against a fixed gap each bar simply slides down to nothing.
+  const gap = Math.max(Math.abs(live.nothing), 1);
+  const shareOf = (v: number) => (v / gap) * 100;
+  // A floor of 2% so a real $0.4M still draws something rather than nothing.
+  const barWidth = (v: number) => {
+    const share = Math.abs(shareOf(v));
+    // Under a tenth of a point draws nothing; above it, a floor of 2% so a real
+    // $0.4M is visible, eased in so the bar grows into the floor.
+    return `${share < 0.1 ? 0 : Math.min(100, Math.max(2 * Math.min(1, share / 0.6), share))}%`;
+  };
 
   if (section === 'solutions') return <div className={`solutionRow ${animating ? 'animating' : ''}`}>
-    <div className="solutionRowHead">
-      <div className="sectionhead"><span>Our four solutions</span></div>
-      <div className="filterrow stateButtons">
-        <button className={`pill ${drifting ? 'active' : ''}`} onClick={onNothing}>Do nothing</button>
-        <button className={`pill ${atPlan ? 'active' : ''}`} onClick={onPlan}>Our plan</button>
-      </div>
-    </div>
-
     <Solution n={1} title="Roll back the doubled routes"
-              impact={impacts.rollback} axis={axis}
+              impact={impacts.rollback} axis={full(0)}
               headline={flightsCut < 0.5 ? 'No change' : `Cut ${flightsCut.toFixed(0)} flights a week`}
               sub={flightsCut < 0.5
                 ? `${extraToday.toFixed(0)} extra flights a week today`
                 : `From ${extraToday.toFixed(0)} extra flights a week to ${extraLive.toFixed(0)}`}>
       <Track label="Extra flights still flying on the 10 doubled routes, against before the expansion"
              value={levers.restoreLevel * 100} min={0} max={100} marks={[{ at: 0, label: 'Today' }, { at: 100, label: 'Our plan' }]}
-             onChange={v => set('restoreLevel', v / 100)} />
+             onChange={v => set('restoreLevel', v / 100)}
+             onHold={() => hold('Restore')} onLetGo={letGo} />
       <p className="line" title={`The plan leaves about ${extraAtPlan.toFixed(0)} extra flights a week because of the ${constants.seasonalFactor} seasonal allowance`}>
         Montréal–Vancouver {(flightsOf('YUL-YVR') / WEEKS).toFixed(1)} a week each way ·
         plan keeps {extraAtPlan.toFixed(0)} for seasonality
@@ -134,98 +153,65 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
     </Solution>
 
     <Solution n={2} title="Raise fares on the stable routes"
-              impact={impacts.fares} axis={axis}
+              impact={impacts.fares} axis={full(3)}
               headline={levers.farePct < 0.01 ? 'No change' : `Raise tickets $${farePerTicket.toFixed(0)}`}
               sub={levers.farePct < 0.01
                 ? `$${PROTECT_FARE.toFixed(0)} a ticket today`
                 : `$${PROTECT_FARE.toFixed(0)} to $${(PROTECT_FARE + farePerTicket).toFixed(0)} (+${levers.farePct.toFixed(2)}%)`}>
       <Track label={`Average ticket price, $${PROTECT_FARE.toFixed(0)} today`}
-             value={levers.farePct} min={0} max={FARE_MAX} step={0.05}
+             value={levers.farePct} min={0} max={FARE_EVIDENCE_CEILING} step={0.05}
              marks={[{ at: 0, label: 'Today' },
-                     { at: presets.costPassThroughFarePct, label: 'Our plan' }]}
-             shadeFrom={FARE_EVIDENCE_CEILING}
-             shadeTitle="Beyond what the data shows: the stable routes moved their own prices by 1.9–6.4% route by route, 3.5% on average"
-             onChange={v => set('farePct', v)} />
-      {levers.farePct > FARE_EVIDENCE_CEILING &&
-        <p className="line warn">Beyond what the data shows — the stable routes moved their own prices by 1.9–6.4%, 3.5% on average.</p>}
+                     { at: presets.costPassThroughFarePct, label: 'Our plan' },
+                     { at: FARE_EVIDENCE_CEILING, label: 'Top of the evidence' }]}
+             onChange={v => set('farePct', v)}
+             onHold={() => hold('Protect')} onLetGo={letGo} />
+      <p className="line">The stable routes moved their own prices by 1.9–6.4% last year, 3.5% on average.</p>
     </Solution>
 
     <Solution n={3} title="Fly the new routes less"
-              impact={impacts.decide} axis={axis}
+              impact={impacts.decide} axis={full(1)}
               headline={newRoutesCut < 0.5 ? 'No change' : `Cut ${newRoutesCut.toFixed(0)} flights a week`}
               sub={newRoutesCut < 0.5
                 ? `${newToday.toFixed(0)} flights a week today`
                 : decideLive < 0.5
-                  ? `From ${newToday.toFixed(0)} a week to none. All six exited`
-                  : `From ${newToday.toFixed(0)} a week to ${decideLive.toFixed(0)}. London and Moncton reduced, Ottawa–Montréal exited`}>
+                  ? `From ${newToday.toFixed(0)} a week to none`
+                  : `From ${newToday.toFixed(0)} a week to ${decideLive.toFixed(0)}`}>
       <Track label="Flights a week still flying on the 6 new routes"
              value={levers.decideLevel * 50} min={0} max={100}
              marks={[{ at: 0, label: 'Today' }, { at: 50, label: `Our plan, ${newAtPlan.toFixed(0)}` },
                      { at: 100, label: 'All exited' }]}
-             onChange={v => set('decideLevel', v / 50)} />
+             onChange={v => set('decideLevel', v / 50)}
+             onHold={() => hold('Decide')} onLetGo={letGo} />
       <p className="line" title="London and Moncton are reduced until each flight needs about 10 tickets to break even">
         London {(flightsOf('YYZ-YXU') / WEEKS).toFixed(1)} · Moncton {(flightsOf('YHZ-YQM') / WEEKS).toFixed(1)} ·
         Ottawa–Montréal {(flightsOf('YOW-YUL') / WEEKS).toFixed(1)} a week each way
       </p>
     </Solution>
 
-    <Solution n={4} title="Hand back the idle gates"
-              impact={impacts.gates} axis={axis}
-              headline={levers.releaseIdleGates ? 'Hand back 2 gates' : 'No change'}
-              sub={levers.releaseIdleGates
-                ? `Saves ${money(constants.idleGatesReleasable)} a year`
-                : 'Halifax A3 and Ottawa A2 carry no route'}>
-      <label className="toggle">
-        <input type="checkbox" checked={levers.releaseIdleGates}
-               onChange={e => set('releaseIdleGates', e.target.checked)} />
-        <span>At the January renewal</span>
-      </label>
-    </Solution>
+    <Solution n={4} title="Close both idle gates"
+              impact={impacts.gates} axis={full(2)}
+              control={<label className="toggle switch">
+                <input type="checkbox" checked={levers.releaseIdleGates}
+                       aria-label="Close the two idle gates at the January renewal"
+                       onChange={e => set('releaseIdleGates', e.target.checked)} />
+              </label>} />
   </div>;
 
   if (section === 'breakeven') return <section className="breakevenBox">
-      <div className="sectionhead stacked"><span>How we break even</span>
-        <small>At the assumptions selected</small></div>
-
-      <p className="landsNow">
-        <b className={result.profit < 0 ? 'neg' : 'pos'}>{money(result.profit)}</b>
-        <span>{result.profit < 0 ? `${money(-result.profit)} short` : `${money(result.profit)} clear`}</span>
-      </p>
-
       <ol className="recipe">
-        {plan.steps.map(step => (
+        {live.steps.map(step => (
           <li key={step.label} className={step.value < 0.05 * M ? 'idle' : ''}>
             <span className="recipeBar">
-              <i style={{ width: `${(Math.abs(step.value) / stack) * 100}%` }}
-                 className={step.value < 0 ? 'neg' : ''} />
+              <i style={{ width: barWidth(step.value) }} className={step.value < 0 ? 'neg' : ''} />
             </span>
             <span className="recipeLabel">{step.label}</span>
             <b className={step.value < 0 ? 'neg' : ''}>{signed(step.value)}</b>
+            <u>{Math.abs(step.value) < 0.05 * M ? '—'
+              : `${Math.round(shareOf(step.value))}% of the gap`}</u>
           </li>
         ))}
-        <li className="recipeTotal">
-          <span className="recipeBar" />
-          <span className="recipeLabel">All four together</span>
-          <b className={plan.breaksEven ? 'pos' : 'neg'}>{money(plan.profit)}</b>
-        </li>
       </ol>
 
-      <p className="note">
-        {plan.bestFarePct < 0.01
-          ? <>At this price response, fares lose more in tickets than they earn. Leave them alone.</>
-          : <>Fares earn most at <b>{plan.bestFarePct.toFixed(1)}%</b>
-              {plan.bestFarePct >= FARE_EVIDENCE_CEILING ? ', the top of the evidence' : ', past which they cost more than they earn'}.</>}
-      </p>
-
-      <p className="note">
-        {plan.breaksEven
-          ? <>All four, pulled fully: <b>{money(plan.profit)}</b>.{' '}
-              {plan.short > 0.05 * M
-                ? <>The {constants.targetMarginPct.toFixed(1)}% target is {money(plan.short)} beyond them.</>
-                : <>Clears the {constants.targetMarginPct.toFixed(1)}% target.</>}</>
-          : <>All four, pulled fully: <b>{money(plan.profit)}</b>. Break even is out of reach here
-              {fareToBreakeven !== null && <>; fares alone would need {fareToBreakeven.toFixed(0)}%</>}.</>}
-      </p>
   </section>;
 
   return <aside className="rail">
@@ -241,7 +227,6 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
       </div>
 
       <h3 className="second">If we raise prices</h3>
-      <p className="note">Route level applies if rivals don&apos;t match our fares.</p>
       <div className="choiceList">
         {ELASTICITIES.map(option => (
           <button key={option.value} className={`choice ${levers.elasticity === option.value ? 'on' : ''}`}
@@ -257,9 +242,6 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
       <Track label={`Crew cost shed ${Math.round(levers.crewShed * 100)}%`}
              value={levers.crewShed * 100} min={0} max={100}
              onChange={v => set('crewShed', v / 100)} />
-      <Track label={`Sustainable target margin ${levers.targetMarginPct.toFixed(1)}%`}
-             value={levers.targetMarginPct} min={0} max={10} step={0.1}
-             onChange={v => set('targetMarginPct', v)} />
       <label className="toggle">
         <input type="checkbox" checked={levers.gates === 'forecast'}
                onChange={e => set('gates', e.target.checked ? 'forecast' : 'actual')} />
@@ -275,17 +257,20 @@ export default function LeverPanel({ section, levers, set, result, onNothing, on
   </aside>;
 }
 
-function Solution({ n, title, impact, axis, headline, sub, children }: {
+function Solution({ n, title, impact, axis, headline, sub, control, children }: {
   n: number; title: string; axis: number;
   impact: { value: number; low: number; high: number };
-  headline: string; sub: string; children: React.ReactNode;
+  headline?: string; sub?: string;
+  /** A switch that sits on the title line, for a lever with nothing to drag. */
+  control?: React.ReactNode;
+  children?: React.ReactNode;
 }) {
-  const width = (v: number) => `${(Math.abs(v) / axis) * 100}%`;
+  const width = (v: number) => `${Math.min(100, (Math.abs(v) / axis) * 100)}%`;
   const banded = Math.abs(impact.high - impact.low) > 0.05 * M;
-  return <section className="pillar solution">
-    <h3><span>{n}</span>{title}</h3>
+  return <section className={`pillar solution ${control ? 'switched' : ''}`}>
+    <h3><span>{n}</span>{title}{control}</h3>
     <div className="solutionHead">
-      <p className="readout">{headline}<small>{sub}</small></p>
+      {headline && <p className="readout">{headline}<small>{sub}</small></p>}
       <div className="impact" title={`${signed(impact.value)} measured on its own`}>
         <span className="impactTrack">
           {banded && <i className="impactBand"
@@ -299,20 +284,20 @@ function Solution({ n, title, impact, axis, headline, sub, children }: {
   </section>;
 }
 
-function Track({ label, value, min, max, step = 1, marks = [], shadeFrom, shadeTitle, onChange }: {
+function Track({ label, value, min, max, step = 1, marks = [], onChange, onHold, onLetGo }: {
   label: string; value: number; min: number; max: number; step?: number;
   marks?: { at: number; label: string }[];
-  shadeFrom?: number; shadeTitle?: string;
   onChange: (v: number) => void;
+  onHold?: () => void;
+  onLetGo?: () => void;
 }) {
   const place = (v: number) => ((v - min) / (max - min)) * 100;
   const progress = place(value);
-  return <label className="slider leverTrack">
+  return <label className="slider leverTrack"
+                onPointerEnter={onHold} onPointerDown={onHold}
+                onPointerLeave={onLetGo} onPointerUp={onLetGo}>
     <span className="trackLabel">{label}</span>
     <span className="trackRail">
-      {shadeFrom !== undefined &&
-        <i className="trackShade" style={{ left: `${place(shadeFrom)}%`, width: `${100 - place(shadeFrom)}%` }}
-           title={shadeTitle} />}
       <input aria-label={label} type="range" min={min} max={max} step={step} value={value}
              style={{ background: `linear-gradient(90deg, var(--ink) ${progress}%, var(--line) ${progress}%)` }}
              onChange={e => onChange(Number(e.target.value))} />
